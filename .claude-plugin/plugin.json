@@ -1,0 +1,7 @@
+{
+  "name": "jarvis-hud",
+  "version": "0.1.0",
+  "description": "아이언맨 아크 리액터 코어 모양의 플로팅 HUD: 5시간 사용량, 세션 상태, 질문 응답, 압축, 위젯 채팅",
+  "author": { "name": "Lee-Front" },
+  "types": "./types/index.d.ts"
+}
