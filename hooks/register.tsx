@@ -6,14 +6,14 @@ import type { Limit, Spend, Touch, TouchKind, Usage, Work } from '../types'
 const PANE = 'hud-work'
 const RECENT = 5
 
-const usage = atom({ plugin: 'jarvis-hud', key: 'usage' } as const, null)
-const work = atom({ plugin: 'jarvis-hud', key: 'work' } as const, {
+const usage = atom({ plugin: 'orbit-hud', key: 'usage' } as const, null)
+const work = atom({ plugin: 'orbit-hud', key: 'work' } as const, {
   isActive: false,
   startedAt: 0,
   endedAt: 0,
   touches: [],
 })
-const spend = atom({ plugin: 'jarvis-hud', key: 'spend' } as const, null as Spend | null)
+const spend = atom({ plugin: 'orbit-hud', key: 'spend' } as const, null as Spend | null)
 
 const WINDOW_SLACK_MS = 60_000
 
@@ -602,7 +602,7 @@ export const register: Register = on => {
     cwd = e.cwd
     // Live files sit outside the plugin folder so writing them never triggers a reload.
     const root = slash($.plugin.root)
-    const live = `${parent(parent(root))}/jarvis-hud-live`
+    const live = `${parent(parent(root))}/orbit-hud-live`
     const id = await $.session.id()
     liveFile = `${live}/sessions/${id}.json`
     commandFile = `${live}/commands/${id}.json`
@@ -630,7 +630,7 @@ export const register: Register = on => {
     })
     await $.command.register({
       name: 'hud',
-      description: '자비스 위젯 켜고 끄기 (/hud on, /hud off · 단축키 Ctrl+Alt+J), 인자 없으면 작업 현황 패널',
+      description: 'Orbit 위젯 켜고 끄기 (/hud on, /hud off · 단축키 Ctrl+Alt+O), 인자 없으면 작업 현황 패널',
     })
     await refreshUsage($)
     await publish($)
@@ -649,11 +649,11 @@ export const register: Register = on => {
       // Starts it if it is not running (it keeps to one instance), and brings it back if hidden.
       await $.fs.write(widgetCommandFile, 'show')
       await launchWidget($)
-      return { text: '자비스 위젯을 켰어요. (Ctrl+Alt+J로 숨기기)' }
+      return { text: 'Orbit 위젯을 켰어요. (Ctrl+Alt+O로 숨기기)' }
     }
     if (arg === 'off') {
       await $.fs.write(widgetCommandFile, 'hide')
-      return { text: '자비스 위젯을 숨겼어요. /hud on 이나 Ctrl+Alt+J로 다시 켤 수 있어요.' }
+      return { text: 'Orbit 위젯을 숨겼어요. /hud on 이나 Ctrl+Alt+O로 다시 켤 수 있어요.' }
     }
     await $.ui.open({ id: PANE, title: '작업 현황' })
     return { text: '작업 현황 패널을 열었어요.' }

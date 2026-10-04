@@ -42,7 +42,7 @@ export type Spend = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'jarvis-hud': {
+    'orbit-hud': {
       usage: Usage | null
       work: Work
       spend: Spend | null

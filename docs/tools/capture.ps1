@@ -1,7 +1,7 @@
 ﻿# Captures the README pictures from a second widget running on made-up sessions
 # (nothing real is shown), into docs/raw; then run make_docs.py.
 $ErrorActionPreference = 'Stop'
-$demo = Join-Path $env:USERPROFILE '.claude\jarvis-hud-demo'
+$demo = Join-Path $env:USERPROFILE '.claude\orbit-hud-demo'
 $repo = Split-Path (Split-Path $PSScriptRoot)
 $out = Join-Path $repo 'docs\raw'
 $widget = Join-Path $repo 'widget\widget.ps1'
@@ -62,7 +62,7 @@ function Snap([string]$name, [string]$what = '') {
 }
 
 Write-All $true
-$env:JARVIS_HUD_LIVE = $demo
+$env:ORBIT_HUD_LIVE = $demo
 $proc = Start-Process powershell.exe -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', "`"$widget`""
 try {
   Start-Sleep -Seconds 5
@@ -92,7 +92,7 @@ try {
   }
 } finally {
   Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-  Remove-Item Env:\JARVIS_HUD_LIVE
+  Remove-Item Env:\ORBIT_HUD_LIVE
 }
 if (Test-Path (Join-Path $demo 'widget-error.log')) { Get-Content (Join-Path $demo 'widget-error.log') -TotalCount 6 }
 Get-ChildItem $out -Name

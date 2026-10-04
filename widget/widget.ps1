@@ -1,4 +1,4 @@
-﻿# Jarvis HUD floating widget: a pixel-art core that fills with the five-hour
+﻿# Orbit HUD floating widget: a pixel-art core that fills with the five-hour
 # usage and glows while any Claude session works. Everything else stays tucked
 # away: cards slide out of the core only when something needs a look or an answer
 # (a question, a finished task, a warning), and slide back once dealt with.
@@ -7,10 +7,10 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
-# JARVIS_HUD_LIVE points a second widget at another live folder (demo data for
+# ORBIT_HUD_LIVE points a second widget at another live folder (demo data for
 # screenshots, say); it runs beside the usual one with its own single-instance lock.
-$liveDir = if ($env:JARVIS_HUD_LIVE) { $env:JARVIS_HUD_LIVE } else { Join-Path $env:USERPROFILE '.claude\jarvis-hud-live' }
-$mutexName = if ($env:JARVIS_HUD_LIVE) { 'Local\jarvis-hud-widget-' + [Math]::Abs($liveDir.ToLower().GetHashCode()) } else { 'Local\jarvis-hud-widget' }
+$liveDir = if ($env:ORBIT_HUD_LIVE) { $env:ORBIT_HUD_LIVE } else { Join-Path $env:USERPROFILE '.claude\orbit-hud-live' }
+$mutexName = if ($env:ORBIT_HUD_LIVE) { 'Local\orbit-hud-widget-' + [Math]::Abs($liveDir.ToLower().GetHashCode()) } else { 'Local\orbit-hud-widget' }
 $isFirst = $false
 $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$isFirst)
 if (-not $isFirst) { exit }
@@ -55,7 +55,7 @@ $monoFont = New-Object System.Windows.Media.FontFamily 'Cascadia Mono, Consolas,
 [xml]$xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Jarvis HUD" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Title="Orbit HUD" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
         SizeToContent="Manual" Width="400" Height="400" TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="Aliased" UseLayoutRounding="True"
@@ -787,7 +787,7 @@ function Set-CardSide {
 # Cards changing size only shift them within the canvas.
 $callouts.Add_SizeChanged({ Set-Layout })
 $panel.Add_SizeChanged({ Set-Layout })
-# ---------- on and off: Ctrl+Alt+J anywhere, /hud on|off, or the menu ----------
+# ---------- on and off: Ctrl+Alt+O anywhere, /hud on|off, or the menu ----------
 # Hidden, the widget keeps running (and keeps the hotkey) with nothing on screen;
 # the choice is saved, so new sessions leave it hidden until it is called back.
 Add-Type @"
@@ -814,9 +814,9 @@ function Set-Hidden([bool]$isHidden) {
 
 $window.Add_SourceInitialized({
   $script:hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $window).Handle
-  # MOD_ALT | MOD_CONTROL | MOD_NOREPEAT, J
-  if (-not [HudHotkey]::RegisterHotKey($script:hwnd, $hotkeyId, 0x4003, 0x4A)) {
-    Write-Failure 'Ctrl+Alt+J is taken by another program; use /hud on|off or the menu.'
+  # MOD_ALT | MOD_CONTROL | MOD_NOREPEAT, O
+  if (-not [HudHotkey]::RegisterHotKey($script:hwnd, $hotkeyId, 0x4003, 0x4F)) {
+    Write-Failure 'Ctrl+Alt+O is taken by another program; use /hud on|off or the menu.'
   }
   $source = [System.Windows.Interop.HwndSource]::FromHwnd($script:hwnd)
   $source.AddHook([System.Windows.Interop.HwndSourceHook] {
@@ -896,7 +896,7 @@ $reset.Add_Click({
 })
 $hide = New-Object System.Windows.Controls.MenuItem
 $hide.Header = '숨기기'
-$hide.InputGestureText = 'Ctrl+Alt+J'
+$hide.InputGestureText = 'Ctrl+Alt+O'
 $hide.Add_Click({ Set-Hidden $true })
 $close = New-Object System.Windows.Controls.MenuItem
 $close.Header = '위젯 종료'
@@ -1100,9 +1100,11 @@ function Resolve-AppSession([string]$cliId) {
   $entry
 }
 
+# Handed to explorer.exe to open, so the widget's own thread does not stall while
+# Windows resolves the link and brings the app forward (the core would stutter).
 function Open-AppSession($s) {
   if (-not $s -or -not $s.appId) { return }
-  try { Start-Process "claude://claude.ai/epitaxy/$($s.appId)" } catch { Write-Failure $_ }
+  try { Start-Process explorer.exe -ArgumentList "claude://claude.ai/epitaxy/$($s.appId)" } catch { Write-Failure $_ }
 }
 
 function Find-Session([string]$id) {
@@ -2234,7 +2236,7 @@ function Watch-Events($list) {
 
 function Update-Notice {
   $now = [DateTime]::Now
-  if ($script:notice -and $now -ge $script:notice.until -and -not $noticeCard.IsMouseOver) {
+  if ($script:notice -and $now -ge $script:notice.until -and ($script:notice.isDismissed -or -not $noticeCard.IsMouseOver)) {
     $script:notice = $null
     Hide-Card $noticeCard
   }
@@ -2243,7 +2245,17 @@ function Update-Notice {
   $n.until = $now.AddSeconds($n.seconds)
   $script:notice = $n
   $noticeBody.Children.Clear()
-  [void]$noticeBody.Children.Add((New-PixelText -Parts @(, @($n.head, $n.color, $true)) -MaxWidth 362))
+  # The head line, with a close mark at its end.
+  $head = New-Object System.Windows.Controls.DockPanel
+  $close = New-PixelLink @(, @('✕', 'Muted', $false)) 'close'
+  $close.Padding = '12,0,0,0'; $close.ToolTip = '닫기'; $close.VerticalAlignment = 'Top'
+  $close.Add_MouseEnter({ param($sender, $e) $sender.Opacity = 0.6 })
+  $close.Add_MouseLeave({ param($sender, $e) $sender.Opacity = 1 })
+  $close.Add_MouseLeftButtonDown({ param($sender, $e) $e.Handled = $true; Close-Notice })
+  [System.Windows.Controls.DockPanel]::SetDock($close, 'Right')
+  [void]$head.Children.Add($close)
+  [void]$head.Children.Add((New-PixelText -Parts @(, @($n.head, $n.color, $true)) -MaxWidth 330))
+  [void]$noticeBody.Children.Add($head)
   $body = New-PixelText -Parts @(, @($n.body, 'Sub', $false)) -MaxWidth 362 -Wrap
   $body.Margin = '0,2,0,0'
   [void]$noticeBody.Children.Add($body)
@@ -2251,18 +2263,24 @@ function Update-Notice {
   Show-Card $noticeCard
 }
 
+function Close-Notice {
+  if (-not $script:notice) { return }
+  $script:notice.until = [DateTime]::MinValue
+  $script:notice.isDismissed = $true
+  Update-View
+}
+
 $noticeCard.Add_MouseLeftButtonDown({
   param($sender, $e)
   $e.Handled = $true
   $n = $script:notice
   if (-not $n) { return }
+  Close-Notice
   switch ($n.action) {
     'open'  { Open-AppSession (Find-Session $n.sessionId) }
-    'focus' { $script:focusId = $n.sessionId; $script:isOpen = $true; $script:isSideSet = $false }
-    'panel' { $script:isOpen = $true; $script:isSideSet = $false }
+    'focus' { $script:focusId = $n.sessionId; $script:isOpen = $true; $script:isSideSet = $false; Update-View }
+    'panel' { $script:isOpen = $true; $script:isSideSet = $false; Update-View }
   }
-  $script:notice.until = [DateTime]::MinValue
-  Update-View
 })
 
 # ---------- the glance card (hover) ----------

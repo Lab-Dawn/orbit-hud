@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/core.gif" width="560" alt="자비스 코어: 대기, 작업 중, 질문">
+<img src="docs/core.gif" width="560" alt="Orbit 코어: 대기, 작업 중, 질문">
 
-# JARVIS HUD
+# ORBIT HUD
 
 **Claude Code 세션 여러 개를, 화면 구석의 코어 하나로.**
 
@@ -26,7 +26,7 @@ Claude Code로 세션을 여러 개 돌리다 보면 이런 일이 생겨요.
 - 5시간 사용량이 얼마나 남았는지, **어떤 세션이 많이 먹었는지** 알기 어려워요.
 - 컨텍스트가 꽉 차 가는 걸 놓치고 있다가 자동 압축을 맞아요.
 
-JARVIS HUD는 이걸 **코어 하나**로 보여 줘요. 필요한 순간에만 알려 주고, 대답이나 압축 같은 간단한 일은 앱을 열지 않고 그 자리에서 처리해요.
+ORBIT HUD는 이걸 **코어 하나**로 보여 줘요. 필요한 순간에만 알려 주고, 대답이나 압축 같은 간단한 일은 앱을 열지 않고 그 자리에서 처리해요.
 
 ## 기능
 
@@ -85,7 +85,7 @@ Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 
 | 코어 **드래그** | 원하는 곳으로 옮기기 (위치는 기억해요) |
 | 코어에 **마우스 올리기** | 사용량 카드 보기 |
 | 코어 **우클릭** | 코어 크기, 위치 초기화, 숨기기, 종료 |
-| **`Ctrl` + `Alt` + `J`** | 어디서든 위젯 숨기기 / 보이기 |
+| **`Ctrl` + `Alt` + `O`** | 어디서든 위젯 숨기기 / 보이기 |
 | `/hud on` · `/hud off` | Claude Code에서 위젯 켜기 / 숨기기 |
 | 세션 행 **클릭** | 채팅 카드 열기 (`Enter` 보내기 · `Shift+Enter` 줄바꿈 · `Esc` 닫기) |
 
@@ -96,7 +96,7 @@ Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 
 1. 저장소를 받아요.
 
    ```bash
-   git clone https://github.com/Lee-Front/jarvis-hud.git
+   git clone https://github.com/Lee-Front/orbit-hud.git
    ```
 
 2. `~/.claude/settings.json`의 `env`에 플러그인 폴더를 등록하고 함수 훅을 켜요.
@@ -104,7 +104,7 @@ Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 
    ```json
    {
      "env": {
-       "CLAUDE_CODE_PLUGIN_DIRS": "C:\\path\\to\\jarvis-hud",
+       "CLAUDE_CODE_PLUGIN_DIRS": "C:\\path\\to\\orbit-hud",
        "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1"
      }
    }
@@ -121,7 +121,7 @@ flowchart LR
   subgraph S["Claude Code 세션 (세션마다 하나)"]
     P["플러그인<br/>hooks/register.tsx"]
   end
-  F[("~/.claude/jarvis-hud-live/<br/>JSON 파일")]
+  F[("~/.claude/orbit-hud-live/<br/>JSON 파일")]
   W["위젯<br/>widget/widget.ps1 (WPF)"]
   P -- "상태 · 사용량 · 질문 · 대화" --> F
   F --> W

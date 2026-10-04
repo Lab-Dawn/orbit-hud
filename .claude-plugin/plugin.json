@@ -1,5 +1,5 @@
 {
-  "name": "jarvis-hud",
+  "name": "orbit-hud",
   "version": "0.1.0",
   "description": "픽셀 아트 코어 하나로 보는 플로팅 HUD: 5시간 사용량, 세션 상태, 질문 응답, 압축, 위젯 채팅",
   "author": { "name": "Lee-Front" },
