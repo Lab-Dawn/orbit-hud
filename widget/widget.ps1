@@ -7,11 +7,14 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
+# JARVIS_HUD_LIVE points a second widget at another live folder (demo data for
+# screenshots, say); it runs beside the usual one with its own single-instance lock.
+$liveDir = if ($env:JARVIS_HUD_LIVE) { $env:JARVIS_HUD_LIVE } else { Join-Path $env:USERPROFILE '.claude\jarvis-hud-live' }
+$mutexName = if ($env:JARVIS_HUD_LIVE) { 'Local\jarvis-hud-widget-' + [Math]::Abs($liveDir.ToLower().GetHashCode()) } else { 'Local\jarvis-hud-widget' }
 $isFirst = $false
-$mutex = New-Object System.Threading.Mutex($true, 'Local\jarvis-hud-widget', [ref]$isFirst)
+$mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$isFirst)
 if (-not $isFirst) { exit }
 
-$liveDir = Join-Path $env:USERPROFILE '.claude\jarvis-hud-live'
 $sessionDir = Join-Path $liveDir 'sessions'
 $prefsPath = Join-Path $liveDir 'widget.json'
 $snapRequest = Join-Path $liveDir 'snap-request'
@@ -545,6 +548,7 @@ function Get-DefaultPosition {
 
 $script:left = $null
 $script:coreTop = $null
+$script:isHidden = $false
 $script:isAbove = $true
 $script:isSideSet = $false
 $script:isCardsLeft = $false
@@ -555,7 +559,16 @@ try {
     $script:coreTop = [double]$prefs.top
   }
   if ($prefs.scale -in 2, 3, 4) { Set-CoreScale ([int]$prefs.scale) }
+  $script:isHidden = [bool]$prefs.hidden
 } catch {}
+# A saved spot on a monitor that has since gone (or moved) would leave the core
+# off every screen; then it starts in the default corner instead.
+if ($null -ne $script:left) {
+  $dpi = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width / [System.Windows.SystemParameters]::PrimaryScreenWidth
+  $center = New-Object System.Drawing.Point ([int](($script:left + $script:coreCenter) * $dpi)), ([int](($script:coreTop + $script:coreCenter) * $dpi))
+  $isOnScreen = [System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.WorkingArea.Contains($center) }
+  if (-not $isOnScreen) { $script:left = $null; $script:coreTop = $null }
+}
 if ($null -eq $script:left) {
   $p = Get-DefaultPosition
   $script:left = $p.left; $script:coreTop = $p.top
@@ -564,7 +577,7 @@ if ($null -eq $script:left) {
 function Save-Prefs {
   try {
     New-Item -ItemType Directory -Force $liveDir | Out-Null
-    $json = @{ left = $script:left; top = $script:coreTop; scale = $script:pixelScale } | ConvertTo-Json -Compress
+    $json = @{ left = $script:left; top = $script:coreTop; scale = $script:pixelScale; hidden = $script:isHidden } | ConvertTo-Json -Compress
     [IO.File]::WriteAllText($prefsPath, $json)
   } catch {}
 }
@@ -615,45 +628,60 @@ function Set-Layout {
   $rowTall = [Math]::Max($cardsTall, [Math]::Max($s, $ch))
   $minX = if ($script:isCardsLeft) { -$cardGap - $cardsRoom } else { 0 }
   $maxX = if ($script:isCardsLeft) { $s } else { $s + $cardGap + $cardsRoom }
-  $minY = ($s - $rowTall) / 2
-  $maxY = ($s + $rowTall) / 2
-  # Cards sit level with the core. With the panel open they grow away from it
-  # (upward over a panel below, downward under a panel above) so they never cover
-  # it; when the screen has no room for that, they step aside past the panel.
-  $cardTop = ($s - $ch) / 2
-  $cardLeft = if ($script:isCardsLeft) { -$cardGap - $cw } else { $s + $cardGap }
+  $area = Get-WorkArea
+  # With the panel shut, keep deciding where it would open, so the cards can
+  # already stand clear of it.
+  if (-not $hasPanel) { $script:isAbove = ($script:coreTop - $script:panelTall - $panelGap) -ge $area.Top }
   $panelX = if ($script:isCardsLeft) { $s - $panelWidth } else { 0 }
   $panelY = if ($script:isAbove) { -$panelGap - $ph } else { $s + $panelGap }
-  # The chat card stands beside the panel, level with its edge nearest the core.
   $hasChat = $hasPanel -and $chatCard.Visibility -eq 'Visible'
-  if ($hasChat) {
-    $chatCard.Measure($infinite)
-    $chatW = $chatCard.Width; $chatH = $chatCard.DesiredSize.Height
-    $chatX = if ($script:isCardsLeft) { $panelX - $panelGap - $chatW } else { $panelX + $panelWidth + $panelGap }
-    $chatY = if ($script:isAbove) { $panelY + $ph - $chatH } else { $panelY }
-    $minX = [Math]::Min($minX, $chatX); $maxX = [Math]::Max($maxX, $chatX + $chatW)
-    $minY = [Math]::Min($minY, $chatY); $maxY = [Math]::Max($maxY, $chatY + $chatH)
-  }
-  if ($hasPanel) {
-    $area = Get-WorkArea
-    $isBeside = $false
-    if ($script:isAbove) {
-      if ($ch -le $area.Bottom - $script:coreTop - $canvasPad) { $cardTop = 0 } else { $isBeside = $true }
+  if (-not $hasPanel) {
+    # Shut: the cards stand beside the core and grow away from the panel's side,
+    # down from the core's top edge when it opens above, up from its bottom edge
+    # when it opens below.
+    $isDown = $script:isAbove
+    $cardLeft = if ($script:isCardsLeft) { -$cardGap - $cw } else { $s + $cardGap }
+    if ($isDown) {
+      $cardTop = [Math]::Min(0, $area.Bottom - $canvasPad - $script:coreTop - $ch)
+      $minY = [Math]::Min(0, $cardTop); $maxY = [Math]::Max($rowTall, $cardTop + $ch)
     } else {
-      if ($ch - $s -le $script:coreTop - $area.Top - $canvasPad) { $cardTop = $s - $ch } else { $isBeside = $true }
+      $cardTop = [Math]::Max($s - $ch, $area.Top + $canvasPad - $script:coreTop)
+      $minY = [Math]::Min($s - $rowTall, $cardTop); $maxY = [Math]::Max($s, $cardTop + $ch)
     }
-    if ($isBeside) {
-      $cardTop = [Math]::Max(($s - $ch) / 2, $area.Top + $canvasPad - $script:coreTop)
-      $cardLeft = if ($script:isCardsLeft) { $s - $panelWidth - $cardGap - $cw } else { $panelWidth + $cardGap }
-      if ($hasChat) { $cardLeft = if ($script:isCardsLeft) { $chatX - $cardGap - $cw } else { $chatX + $chatW + $cardGap } }
-      $minX = [Math]::Min($minX, $cardLeft); $maxX = [Math]::Max($maxX, $cardLeft + $cw)
+  } else {
+    # Open: panel, chat and cards stand in one row along the panel's edge next to
+    # the core, side by side outward, each growing away from the core.
+    $isDown = -not $script:isAbove
+    $base = if ($script:isAbove) { $panelY + $ph } else { $panelY }
+    $edge = if ($script:isCardsLeft) { $panelX } else { $panelX + $panelWidth }
+    $minX = [Math]::Min(0, $panelX); $maxX = [Math]::Max($s, $panelX + $panelWidth)
+    $minY = [Math]::Min(0, $panelY); $maxY = [Math]::Max($s, $panelY + $ph)
+    # The chat's place is kept whether it is open or not, and the cards' place
+    # beyond it, so opening or closing the chat never resizes the window (a
+    # resize and a redraw seldom land on the same frame, and the content jumps).
+    $chatW = $chatCard.Width
+    $chatX = if ($script:isCardsLeft) { $edge - $panelGap - $chatW } else { $edge + $panelGap }
+    $chatEdge = if ($script:isCardsLeft) { $chatX } else { $chatX + $chatW }
+    $minX = [Math]::Min($minX, $chatX); $maxX = [Math]::Max($maxX, $chatX + $chatW)
+    if ($hasChat) {
+      $chatCard.Measure($infinite)
+      $chatH = $chatCard.DesiredSize.Height
+      $chatY = if ($script:isAbove) { $base - $chatH } else { $base }
+      $edge = $chatEdge
+      $minY = [Math]::Min($minY, $chatY); $maxY = [Math]::Max($maxY, $chatY + $chatH)
     }
-    $minY = [Math]::Min($minY, $cardTop); $maxY = [Math]::Max($maxY, $cardTop + $ch)
+    $cardLeft = if ($script:isCardsLeft) { $edge - $panelGap - $cw } else { $edge + $panelGap }
+    $cardTop = if ($script:isAbove) { $base - $ch } else { $base }
+    # Kept on the screen, whatever the row would like.
+    $cardTop = [Math]::Max($cardTop, $area.Top + $canvasPad - $script:coreTop)
+    $cardTop = [Math]::Min($cardTop, $area.Bottom - $canvasPad - $script:coreTop - $ch)
+    # Room kept for the widest and tallest cards, so they come and go without the window resizing.
+    $roomX = if ($script:isCardsLeft) { $chatEdge - $panelGap - $cardsRoom } else { $chatEdge + $panelGap + $cardsRoom }
+    $roomY = if ($script:isAbove) { $base - $cardsTall } else { $base + $cardsTall }
+    $minX = [Math]::Min([Math]::Min($minX, $cardLeft), $roomX); $maxX = [Math]::Max([Math]::Max($maxX, $cardLeft + $cw), $roomX)
+    $minY = [Math]::Min([Math]::Min($minY, $cardTop), $roomY); $maxY = [Math]::Max([Math]::Max($maxY, $cardTop + $ch), $roomY)
   }
-  if ($hasPanel) {
-    $minX = [Math]::Min($minX, $panelX); $maxX = [Math]::Max($maxX, $panelX + $panelWidth)
-    $minY = [Math]::Min($minY, $panelY); $maxY = [Math]::Max($maxY, $panelY + $ph)
-  }
+  Set-CardOrder $isDown
   $coreX = [Math]::Round($canvasPad - $minX)
   $coreY = [Math]::Round($canvasPad - $minY)
   $width = [Math]::Ceiling($maxX - $minX + 2 * $canvasPad)
@@ -661,8 +689,15 @@ function Set-Layout {
 
   [System.Windows.Controls.Canvas]::SetLeft($core, $coreX)
   [System.Windows.Controls.Canvas]::SetTop($core, $coreY)
-  [System.Windows.Controls.Canvas]::SetLeft($callouts, [Math]::Round($coreX + $cardLeft))
-  [System.Windows.Controls.Canvas]::SetTop($callouts, [Math]::Round($coreY + $cardTop))
+  $cardsX = [Math]::Round($coreX + $cardLeft); $cardsY = [Math]::Round($coreY + $cardTop)
+  [System.Windows.Controls.Canvas]::SetLeft($callouts, $cardsX)
+  [System.Windows.Controls.Canvas]::SetTop($callouts, $cardsY)
+  # Compared by the edges that stay put as the cards change size: the side facing
+  # the core, and the top or bottom they grow from.
+  $isTopHeld = $isDown
+  $edgeX = $script:left - $coreX + $cardsX + $(if ($script:isCardsLeft) { $cw } else { 0 })
+  $edgeY = $script:coreTop - $coreY + $cardsY + $(if ($isTopHeld) { 0 } else { $ch })
+  Move-Cards $edgeX $edgeY
   if ($hasPanel) {
     [System.Windows.Controls.Canvas]::SetLeft($panel, $coreX + $panelX)
     [System.Windows.Controls.Canvas]::SetTop($panel, [Math]::Round($coreY + $panelY))
@@ -690,12 +725,52 @@ function Set-Layout {
 # downward; decided once per opening (and while dragging), flipped only if it stops fitting.
 function Set-PanelSide {
   $panel.Measure((New-Object System.Windows.Size ([double]::PositiveInfinity), ([double]::PositiveInfinity)))
+  $script:panelTall = $panel.DesiredSize.Height
   $need = $panel.DesiredSize.Height + $panelGap
   $area = Get-WorkArea
   $fitsAbove = ($script:coreTop - $need) -ge $area.Top
   if ($script:isSideSet -and (-not $script:isAbove -or $fitsAbove)) { return }
   $script:isSideSet = $true
   $script:isAbove = $fitsAbove
+}
+
+# When the cards must step to a new spot on screen (aside for the panel, say), they
+# glide there from where they were instead of jumping. Positions are compared on
+# the screen, so the window resizing around them moves nothing by itself.
+$script:cardsAt = $null
+$cardsShift = New-Object System.Windows.Media.TranslateTransform
+$callouts.RenderTransform = $cardsShift
+function Move-Cards([double]$x, [double]$y) {
+  $was = $script:cardsAt
+  $script:cardsAt = @{ x = $x; y = $y }
+  $isShown = @($cards | Where-Object { $_.Visibility -eq 'Visible' }).Count -gt 0
+  if (-not $was -or -not $isShown -or $script:drag) {
+    $cardsShift.BeginAnimation([System.Windows.Media.TranslateTransform]::XProperty, $null)
+    $cardsShift.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $null)
+    return
+  }
+  $dx = $was.x - $x; $dy = $was.y - $y
+  if ([Math]::Abs($dx) -lt 1 -and [Math]::Abs($dy) -lt 1) { return }
+  $ease = New-Object System.Windows.Media.Animation.CubicEase
+  $ease.EasingMode = 'EaseOut'
+  foreach ($axis in @(@([System.Windows.Media.TranslateTransform]::XProperty, ($cardsShift.X + $dx)), @([System.Windows.Media.TranslateTransform]::YProperty, ($cardsShift.Y + $dy)))) {
+    $glide = New-Object System.Windows.Media.Animation.DoubleAnimation $axis[1], 0, (New-Duration 200)
+    $glide.EasingFunction = $ease
+    $cardsShift.BeginAnimation($axis[0], $glide)
+  }
+}
+
+# The panel's height as last opened, to tell where it would open while shut.
+$script:panelTall = 420
+$script:cardsDown = $null
+
+# The question nearest the core's edge the cards grow from, notices and the glance beyond.
+function Set-CardOrder([bool]$isDown) {
+  if ($script:cardsDown -eq $isDown) { return }
+  $script:cardsDown = $isDown
+  $order = if ($isDown) { @($questionCard, $noticeCard, $hoverCard) } else { @($hoverCard, $noticeCard, $questionCard) }
+  $callouts.Children.Clear()
+  foreach ($c in $order) { [void]$callouts.Children.Add($c) }
 }
 
 # Cards come out on the side of the core facing the middle of its monitor.
@@ -712,7 +787,48 @@ function Set-CardSide {
 # Cards changing size only shift them within the canvas.
 $callouts.Add_SizeChanged({ Set-Layout })
 $panel.Add_SizeChanged({ Set-Layout })
-$window.Add_SourceInitialized({ $script:hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $window).Handle })
+# ---------- on and off: Ctrl+Alt+J anywhere, /hud on|off, or the menu ----------
+# Hidden, the widget keeps running (and keeps the hotkey) with nothing on screen;
+# the choice is saved, so new sessions leave it hidden until it is called back.
+Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class HudHotkey {
+  [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint mods, uint vk);
+  [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
+}
+"@
+$hotkeyId = 0x4A48
+$widgetCommand = Join-Path $liveDir 'widget-command'
+
+function Set-Hidden([bool]$isHidden) {
+  if ($script:isHidden -eq $isHidden) { return }
+  $script:isHidden = $isHidden
+  if ($isHidden) { $script:isOpen = $false }
+  Save-Prefs
+  Update-View
+  if (-not $isHidden) {
+    $fade = New-Object System.Windows.Media.Animation.DoubleAnimation 0, 1, (New-Duration 180)
+    $root.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $fade)
+  }
+}
+
+$window.Add_SourceInitialized({
+  $script:hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $window).Handle
+  # MOD_ALT | MOD_CONTROL | MOD_NOREPEAT, J
+  if (-not [HudHotkey]::RegisterHotKey($script:hwnd, $hotkeyId, 0x4003, 0x4A)) {
+    Write-Failure 'Ctrl+Alt+J is taken by another program; use /hud on|off or the menu.'
+  }
+  $source = [System.Windows.Interop.HwndSource]::FromHwnd($script:hwnd)
+  $source.AddHook([System.Windows.Interop.HwndSourceHook] {
+    param($hwnd, $msg, $wParam, $lParam, [ref]$handled)
+    if ($msg -eq 0x0312 -and $wParam.ToInt32() -eq $hotkeyId) {
+      $handled.Value = $true
+      try { Set-Hidden (-not $script:isHidden) } catch { Write-Failure $_ }
+    }
+    [IntPtr]::Zero
+  })
+})
+$window.Add_Closed({ if ($script:hwnd -ne [IntPtr]::Zero) { [void][HudHotkey]::UnregisterHotKey($script:hwnd, $hotkeyId) } })
 
 function Get-CursorPoint {
   $scale = Get-Scale
@@ -778,8 +894,12 @@ $reset.Add_Click({
   Save-Prefs
   Update-View
 })
+$hide = New-Object System.Windows.Controls.MenuItem
+$hide.Header = '숨기기'
+$hide.InputGestureText = 'Ctrl+Alt+J'
+$hide.Add_Click({ Set-Hidden $true })
 $close = New-Object System.Windows.Controls.MenuItem
-$close.Header = '위젯 닫기'
+$close.Header = '위젯 종료'
 $close.Add_Click({ $window.Close() })
 # Core size: two, three or four screen pixels per art pixel.
 $sizeMenu = New-Object System.Windows.Controls.MenuItem
@@ -803,6 +923,7 @@ foreach ($choice in @(@(2, '작게 (64px)'), @(3, '보통 (96px)'), @(4, '크게
 $menu.Add_Opened({ foreach ($other in $sizeMenu.Items) { $other.IsChecked = ([int]$other.Tag -eq $script:pixelScale) } })
 [void]$menu.Items.Add($sizeMenu)
 [void]$menu.Items.Add($reset)
+[void]$menu.Items.Add($hide)
 [void]$menu.Items.Add($close)
 $core.ContextMenu = $menu
 
@@ -1965,7 +2086,7 @@ function Show-QuestionPage {
   $foot.Margin = '0,10,0,0'; $foot.LastChildFill = $false
   $isLast = $q.page -eq ($q.items.Count - 1)
   if ($q.isOneTap) {
-    [void]$foot.Children.Add((New-PixelText -Parts @(, @('고르면 바로 답해요 · 입력했다면 Enter', 'Faint', $false))))
+    [void]$foot.Children.Add((New-PixelText -Parts @(, @('고르면 바로 답해요', 'Faint', $false))))
   } else {
     if ($q.page -gt 0) {
       $back = New-QuestionButton '← 이전' 'back' $false
@@ -2246,9 +2367,16 @@ function Save-Snapshot {
 # ---------- every tick ----------
 
 function Update-View {
+  if (Test-Path $widgetCommand) {
+    $command = try { ([IO.File]::ReadAllText($widgetCommand)).Trim() } catch { '' }
+    try { [IO.File]::Delete($widgetCommand) } catch {}
+    switch ($command) { 'hide' { Set-Hidden $true } 'show' { Set-Hidden $false } 'toggle' { Set-Hidden (-not $script:isHidden) } }
+  }
   $list = Read-Sessions
   $script:sessions = $list
-  if ($list.Count -eq 0) {
+  if ($list.Count -eq 0 -or $script:isHidden) {
+    # Prompts already queued still go out while out of sight.
+    if ($script:isHidden) { Send-Outboxes }
     $window.Visibility = 'Hidden'
     return
   }
@@ -2274,7 +2402,8 @@ function Update-View {
   Watch-Events $list
   Update-Question $list
   Update-Notice
-  if ($script:isHovering -and -not $script:isOpen -and -not $script:drag) {
+  # While a question is out the glance stays in: the core already says it is asking.
+  if ($script:isHovering -and -not $script:isOpen -and -not $script:drag -and -not $script:q) {
     Show-Glance $list
     Show-Card $hoverCard
   } else {
@@ -2309,6 +2438,28 @@ $timer.Add_Tick({
       if ($wanted.StartsWith('pick:')) { Select-Option $wanted.Substring(5) }
       elseif ($wanted.StartsWith('act:')) { Invoke-QuestionAction $wanted.Substring(4) }
       elseif ($wanted.StartsWith('say:')) { $chatInput.Text = $wanted.Substring(4); Send-ChatPrompt }
+      elseif ($wanted -eq 'hover') { $script:isHovering = $true; Update-View }
+      elseif ($wanted -eq 'panel-close') { if ($script:chatId) { Set-ChatSession $script:chatId }; $script:isOpen = $false; Update-View }
+      elseif ($wanted.StartsWith('notice:')) {
+        $parts = $wanted.Substring(7).Split('|')
+        Push-Notice $parts[0] $parts[1] $parts[2] $null 'panel' 30
+        Update-View
+      }
+      elseif ($wanted.StartsWith('coreframes:')) {
+        # Each animation frame of the core, as 32x32 PNGs, for an animated picture.
+        $parts = $wanted.Substring(11).Split('|')
+        $script:coreMode = $parts[0]; $script:corePct = [double]$parts[1]
+        $coreAnimation.Stop()
+        for ($k = 0; $k -lt 12; $k++) {
+          $script:coreFrame = $k; $script:coreDrawn = $null
+          Draw-Core
+          $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+          $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($coreBitmap.Clone()))
+          $stream = [IO.File]::Create((Join-Path $liveDir "core-$($parts[0])-$k.png"))
+          $encoder.Save($stream); $stream.Close()
+        }
+        if ($script:coreMode -ne 'idle') { $coreAnimation.Start() }
+      }
       elseif ($wanted.StartsWith('chat:')) {
         # Opens the panel with that session's chat, for the picture.
         $script:isOpen = $true; $script:isSideSet = $false

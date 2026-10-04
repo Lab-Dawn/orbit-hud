@@ -103,6 +103,8 @@ type Hit = { key: string; kind: TouchKind; label: string; detail: string; isFile
 
 let cwd = ''
 let liveFile = ''
+// The widget reads `hide`, `show` or `toggle` from here (/hud on|off).
+let widgetCommandFile = ''
 let commandFile = ''
 let answerFile = ''
 let widgetScript = ''
@@ -605,6 +607,7 @@ export const register: Register = on => {
     liveFile = `${live}/sessions/${id}.json`
     commandFile = `${live}/commands/${id}.json`
     answerFile = `${live}/answers/${id}.json`
+    widgetCommandFile = `${live}/widget-command`
     chatFile = `${live}/chat/${id}.json`
     watchFile = `${live}/chat/${id}.watch`
     promptFile = `${live}/prompts/${id}.json`
@@ -627,7 +630,7 @@ export const register: Register = on => {
     })
     await $.command.register({
       name: 'hud',
-      description: '작업 현황 패널 열기 (/hud widget: 플로팅 위젯 다시 띄우기)',
+      description: '자비스 위젯 켜고 끄기 (/hud on, /hud off · 단축키 Ctrl+Alt+J), 인자 없으면 작업 현황 패널',
     })
     await refreshUsage($)
     await publish($)
@@ -641,9 +644,16 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'hud' }, async ($, e) => {
-    if (e.args.trim() === 'widget') {
+    const arg = e.args.trim()
+    if (arg === 'on' || arg === 'widget') {
+      // Starts it if it is not running (it keeps to one instance), and brings it back if hidden.
+      await $.fs.write(widgetCommandFile, 'show')
       await launchWidget($)
-      return { text: '플로팅 위젯을 띄웠어요.' }
+      return { text: '자비스 위젯을 켰어요. (Ctrl+Alt+J로 숨기기)' }
+    }
+    if (arg === 'off') {
+      await $.fs.write(widgetCommandFile, 'hide')
+      return { text: '자비스 위젯을 숨겼어요. /hud on 이나 Ctrl+Alt+J로 다시 켤 수 있어요.' }
     }
     await $.ui.open({ id: PANE, title: '작업 현황' })
     return { text: '작업 현황 패널을 열었어요.' }
