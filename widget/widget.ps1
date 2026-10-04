@@ -1,4 +1,4 @@
-﻿# Jarvis HUD floating widget: an arc-reactor core that fills with the five-hour
+﻿# Jarvis HUD floating widget: a pixel-art core that fills with the five-hour
 # usage and glows while any Claude session works. Everything else stays tucked
 # away: cards slide out of the core only when something needs a look or an answer
 # (a question, a finished task, a warning), and slide back once dealt with.
@@ -196,7 +196,7 @@ function Set-Pulse($shape, [bool]$on) {
   }
 }
 
-# ---------- the core: a 32x32 pixel-art arc reactor, drawn live ----------
+# ---------- the core: a 32x32 pixel-art ring, drawn live ----------
 
 $N = 32
 $mid = ($N - 1) / 2

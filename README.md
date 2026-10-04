@@ -4,10 +4,10 @@
 
 # JARVIS HUD
 
-**Claude Code 세션 여러 개를, 화면 구석의 아크 리액터 하나로.**
+**Claude Code 세션 여러 개를, 화면 구석의 코어 하나로.**
 
 평소엔 코어 하나만 떠 있다가, 확인할 일이 생길 때만 카드가 스르륵 나왔다 들어가는<br>
-아이언맨 자비스 스타일의 플로팅 HUD예요.
+픽셀 아트 플로팅 HUD예요.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-D97757)
