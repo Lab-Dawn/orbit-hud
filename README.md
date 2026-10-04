@@ -97,7 +97,7 @@ Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 
 1. 저장소를 받아요.
 
    ```bash
-   git clone https://github.com/Lee-Front/orbit-hud.git
+   git clone https://github.com/Lab-Dawn/orbit-hud.git
    ```
 
 2. `~/.claude/settings.json`의 `env`에 플러그인 폴더를 등록하고 함수 훅을 켜요.
