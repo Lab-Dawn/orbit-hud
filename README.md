@@ -13,6 +13,7 @@
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-D97757)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?logo=powershell&logoColor=white)
 ![Local](https://img.shields.io/badge/통신-로컬%20전용-22D3EE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-4ADE80)](LICENSE)
 
 </div>
 
@@ -154,3 +155,7 @@ flowchart LR
 | `widget/widget.ps1` | 위젯: 픽셀 아트 코어, 카드, 패널, 채팅 (PowerShell + WPF) |
 | `types/index.d.ts` | 플러그인 상태 타입 |
 | `docs/tools/` | README 이미지를 가짜 데모 세션으로 다시 찍는 스크립트 |
+
+## 라이선스
+
+[MIT](LICENSE). 누구나 자유롭게 쓰고, 고치고, 다시 배포해도 돼요. 저작권 표시만 남겨 주세요.
