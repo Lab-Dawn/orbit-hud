@@ -52,6 +52,11 @@ function withCompacted(u: Usage): Usage {
   }
 }
 
+// When this session's rate-limit figures last came off a model response. A session
+// sitting idle keeps old figures (from before a plan change, say) while it goes on
+// writing its file, so the widget trusts the most recently measured reading.
+let limitsAt = 0
+
 async function refreshUsage($: EngineInterface) {
   const now = withCompacted(toUsage(await $.session.usage()))
   await update($, usage, () => now)
@@ -261,6 +266,7 @@ async function publish($: EngineInterface, isEnded = false) {
     isEnded,
     compact: compactState,
     compactError,
+    limitsAt,
     question: pendingQuestion,
     spend:
       s && u?.usd !== undefined
@@ -622,7 +628,13 @@ export const register: Register = on => {
       // The cost ledger moves mid-turn too; read it every few seconds while working.
       if (ticks % 5 === 0) {
         void read($, work)
-          .then(w => (w.isActive ? refreshUsage($).then(() => schedulePublish($)) : undefined))
+          .then(async w => {
+            if (!w.isActive) return
+            // Mid-turn, the figures are those of the response just in.
+            await refreshUsage($)
+            limitsAt = await $.clock.now()
+            schedulePublish($)
+          })
           .catch(() => undefined)
       }
       // A heartbeat, so the widget can tell an idle session from one that is gone.
@@ -661,6 +673,7 @@ export const register: Register = on => {
 
   on('session.measure', async ($, e, next) => {
     if (e.changed.includes('context')) compactedTokens = null
+    if (e.rateLimits.length > 0) limitsAt = await $.clock.now()
     const now = withCompacted(toUsage(e))
     await update($, usage, () => now)
     await trackSpend($, now)

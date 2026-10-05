@@ -160,8 +160,9 @@ function Format-Reset($iso) {
   try { $left = [DateTimeOffset]::Parse($iso) - [DateTimeOffset]::Now } catch { return '' }
   if ($left.TotalMinutes -le 0) { return '' }
   if ($left.TotalMinutes -lt 60) { return "$([Math]::Ceiling($left.TotalMinutes))분 후 리셋" }
-  if ($left.TotalHours -lt 48) { return ('{0}:{1:00} 후 리셋' -f [Math]::Floor($left.TotalHours), $left.Minutes) }
-  "$([Math]::Floor($left.TotalDays))일 후 리셋"
+  if ($left.TotalHours -lt 24) { return ('{0}:{1:00} 후 리셋' -f [Math]::Floor($left.TotalHours), $left.Minutes) }
+  if ($left.Hours -eq 0) { return "$($left.Days)일 후 리셋" }
+  "$($left.Days)일 $($left.Hours)시간 후 리셋"
 }
 
 function Format-Tokens($n) {
@@ -527,6 +528,18 @@ function Hide-Card($card) {
   }
 }
 
+# Gone at once, no fade: for a card whose place is about to change (the glance
+# when the panel opens), so it never slides off somewhere on its way out.
+function Drop-Card($card) {
+  $card.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+  if ($card.RenderTransform -is [System.Windows.Media.TranslateTransform]) {
+    $card.RenderTransform.BeginAnimation([System.Windows.Media.TranslateTransform]::XProperty, $null)
+  }
+  $card.Visibility = 'Collapsed'
+  $card.Tag = $null
+  $card.Opacity = 1
+}
+
 function Complete-HiddenCards {
   foreach ($c in $cards) {
     if ($c.Tag -ne 'out') { continue }
@@ -626,43 +639,47 @@ function Set-Layout {
 
   # Everything relative to the core's top-left corner first.
   $rowTall = [Math]::Max($cardsTall, [Math]::Max($s, $ch))
-  $minX = if ($script:isCardsLeft) { -$cardGap - $cardsRoom } else { 0 }
-  $maxX = if ($script:isCardsLeft) { $s } else { $s + $cardGap + $cardsRoom }
   $area = Get-WorkArea
   # With the panel shut, keep deciding where it would open, so the cards can
   # already stand clear of it.
   if (-not $hasPanel) { $script:isAbove = ($script:coreTop - $script:panelTall - $panelGap) -ge $area.Top }
+  if ($ph -gt $script:panelTall) { $script:panelTall = $ph }
   $panelX = if ($script:isCardsLeft) { $s - $panelWidth } else { 0 }
   $panelY = if ($script:isAbove) { -$panelGap - $ph } else { $s + $panelGap }
   $hasChat = $hasPanel -and $chatCard.Visibility -eq 'Visible'
+  # With the panel open, everything lines up on the panel's edge next to the core.
+  $base = if ($script:isAbove) { -$panelGap } else { $s + $panelGap }
+  $edge = if ($script:isCardsLeft) { $panelX } else { $panelX + $panelWidth }
+  $chatW = $chatCard.Width
+  $chatX = if ($script:isCardsLeft) { $edge - $panelGap - $chatW } else { $edge + $panelGap }
+  $chatEdge = if ($script:isCardsLeft) { $chatX } else { $chatX + $chatW }
+
+  # The window keeps room for all of it, open or shut: the cards beside the core,
+  # the panel at its tallest, the chat and the cards beyond it. Opening or closing
+  # the panel or the chat then never resizes the window; a resize and a redraw
+  # seldom land on the same frame, and whatever was leaving would jump away.
+  $panelFar = if ($script:isAbove) { -$panelGap - $script:panelTall } else { $s + $panelGap + $script:panelTall }
+  $roomX = if ($script:isCardsLeft) { $chatEdge - $panelGap - $cardsRoom } else { $chatEdge + $panelGap + $cardsRoom }
+  $roomY = if ($script:isAbove) { $base - $cardsTall } else { $base + $cardsTall }
+  $nearX = if ($script:isCardsLeft) { -$cardGap - $cardsRoom } else { $s + $cardGap + $cardsRoom }
+  $nearTop = if ($script:isAbove) { 0 } else { $s - $rowTall }
+  $nearBottom = if ($script:isAbove) { $rowTall } else { $s }
+  $minX = [Math]::Min([Math]::Min(0, $nearX), [Math]::Min($panelX, [Math]::Min($chatX, $roomX)))
+  $maxX = [Math]::Max([Math]::Max($s, $nearX), [Math]::Max($panelX + $panelWidth, [Math]::Max($chatX + $chatW, $roomX)))
+  $minY = [Math]::Min([Math]::Min(0, $nearTop), [Math]::Min($panelFar, $roomY))
+  $maxY = [Math]::Max([Math]::Max($s, $nearBottom), [Math]::Max($panelFar, $roomY))
+
   if (-not $hasPanel) {
     # Shut: the cards stand beside the core and grow away from the panel's side,
     # down from the core's top edge when it opens above, up from its bottom edge
     # when it opens below.
     $isDown = $script:isAbove
     $cardLeft = if ($script:isCardsLeft) { -$cardGap - $cw } else { $s + $cardGap }
-    if ($isDown) {
-      $cardTop = [Math]::Min(0, $area.Bottom - $canvasPad - $script:coreTop - $ch)
-      $minY = [Math]::Min(0, $cardTop); $maxY = [Math]::Max($rowTall, $cardTop + $ch)
-    } else {
-      $cardTop = [Math]::Max($s - $ch, $area.Top + $canvasPad - $script:coreTop)
-      $minY = [Math]::Min($s - $rowTall, $cardTop); $maxY = [Math]::Max($s, $cardTop + $ch)
-    }
+    if ($isDown) { $cardTop = [Math]::Min(0, $area.Bottom - $canvasPad - $script:coreTop - $ch) }
+    else { $cardTop = [Math]::Max($s - $ch, $area.Top + $canvasPad - $script:coreTop) }
   } else {
-    # Open: panel, chat and cards stand in one row along the panel's edge next to
-    # the core, side by side outward, each growing away from the core.
+    # Open: panel, chat and cards side by side outward, each growing away from the core.
     $isDown = -not $script:isAbove
-    $base = if ($script:isAbove) { $panelY + $ph } else { $panelY }
-    $edge = if ($script:isCardsLeft) { $panelX } else { $panelX + $panelWidth }
-    $minX = [Math]::Min(0, $panelX); $maxX = [Math]::Max($s, $panelX + $panelWidth)
-    $minY = [Math]::Min(0, $panelY); $maxY = [Math]::Max($s, $panelY + $ph)
-    # The chat's place is kept whether it is open or not, and the cards' place
-    # beyond it, so opening or closing the chat never resizes the window (a
-    # resize and a redraw seldom land on the same frame, and the content jumps).
-    $chatW = $chatCard.Width
-    $chatX = if ($script:isCardsLeft) { $edge - $panelGap - $chatW } else { $edge + $panelGap }
-    $chatEdge = if ($script:isCardsLeft) { $chatX } else { $chatX + $chatW }
-    $minX = [Math]::Min($minX, $chatX); $maxX = [Math]::Max($maxX, $chatX + $chatW)
     if ($hasChat) {
       $chatCard.Measure($infinite)
       $chatH = $chatCard.DesiredSize.Height
@@ -675,12 +692,9 @@ function Set-Layout {
     # Kept on the screen, whatever the row would like.
     $cardTop = [Math]::Max($cardTop, $area.Top + $canvasPad - $script:coreTop)
     $cardTop = [Math]::Min($cardTop, $area.Bottom - $canvasPad - $script:coreTop - $ch)
-    # Room kept for the widest and tallest cards, so they come and go without the window resizing.
-    $roomX = if ($script:isCardsLeft) { $chatEdge - $panelGap - $cardsRoom } else { $chatEdge + $panelGap + $cardsRoom }
-    $roomY = if ($script:isAbove) { $base - $cardsTall } else { $base + $cardsTall }
-    $minX = [Math]::Min([Math]::Min($minX, $cardLeft), $roomX); $maxX = [Math]::Max([Math]::Max($maxX, $cardLeft + $cw), $roomX)
-    $minY = [Math]::Min([Math]::Min($minY, $cardTop), $roomY); $maxY = [Math]::Max([Math]::Max($maxY, $cardTop + $ch), $roomY)
   }
+  $minX = [Math]::Min($minX, $cardLeft); $maxX = [Math]::Max($maxX, $cardLeft + $cw)
+  $minY = [Math]::Min($minY, $cardTop); $maxY = [Math]::Max($maxY, $cardTop + $ch)
   Set-CardOrder $isDown
   $coreX = [Math]::Round($canvasPad - $minX)
   $coreY = [Math]::Round($canvasPad - $minY)
@@ -874,7 +888,7 @@ $window.Add_MouseLeftButtonUp({
   } elseif ($drag.isOnCore) {
     $script:isOpen = -not $script:isOpen
     $script:isSideSet = $false
-    if ($script:isOpen) { Hide-Card $hoverCard }
+    if ($script:isOpen) { Drop-Card $hoverCard }
   }
   Update-View
 })
@@ -980,19 +994,26 @@ function Test-SameWindow($a, $b) {
 # freshest reading of each limit across sessions (the latest window, its highest
 # figure); a window whose reset time has passed with no newer reading reads 0%.
 function Get-AccountUsage($list) {
+  # Per limit: the reading of the newest window, and within one window the one a
+  # session measured most recently (a plan change can lower the figure mid-window,
+  # and an idle session keeps the old one). Without measuring times, the higher.
   $best = @{}
+  $bestAt = @{}
   $order = New-Object System.Collections.Generic.List[string]
   foreach ($s in $list) {
+    $at = if ($s.data.limitsAt) { [double]$s.data.limitsAt } else { 0 }
     foreach ($m in $s.data.usage) {
       if ($m.short -eq 'ctx') { continue }
       if (-not $order.Contains([string]$m.short)) { $order.Add([string]$m.short) }
       $have = $best[$m.short]
-      if (-not $have) { $best[$m.short] = $m; continue }
+      if (-not $have) { $best[$m.short] = $m; $bestAt[$m.short] = $at; continue }
       $mine = ConvertTo-Time $m.resetsAt
       $theirs = ConvertTo-Time $have.resetsAt
       $isLater = $mine -and (-not $theirs -or ($mine - $theirs).TotalSeconds -gt 60)
       $isSame = $mine -and $theirs -and [Math]::Abs(($mine - $theirs).TotalSeconds) -le 60
-      if ($isLater -or ($isSame -and $m.pct -gt $have.pct)) { $best[$m.short] = $m }
+      $haveAt = $bestAt[$m.short]
+      $isNewer = if ($at -gt 0 -or $haveAt -gt 0) { $at -gt $haveAt } else { $m.pct -gt $have.pct }
+      if ($isLater -or ($isSame -and $isNewer)) { $best[$m.short] = $m; $bestAt[$m.short] = $at }
     }
   }
   $now = [DateTimeOffset]::Now
