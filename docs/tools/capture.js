@@ -1,7 +1,7 @@
 // Captures the README pictures from a second widget running on made-up sessions
 // (nothing real is shown), into docs/raw; then run make_docs.py.
 //   node docs/tools/capture.js            all pictures
-//   node docs/tools/capture.js <step...>  only some: question coreframes panel-chat panel notice
+//   node docs/tools/capture.js <step...>  only some: question coreframes panel-chat panel glance notice
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -11,7 +11,16 @@ const repo = path.resolve(__dirname, '..', '..')
 const demo = path.join(os.homedir(), '.claude', 'orbit-hud-demo')
 const out = path.join(repo, 'docs', 'raw')
 const app = path.join(repo, 'app')
-const electron = require(path.join(app, 'node_modules', 'electron'))
+// The Electron the launcher installed, or one under app/node_modules when working on the widget.
+const electron = [path.join(app, 'node_modules', 'electron'), path.join(os.homedir(), '.claude', 'orbit-hud-live', 'runtime', 'node_modules', 'electron')]
+  .map(dir => {
+    try {
+      return require(dir)
+    } catch {
+      return null
+    }
+  })
+  .find(Boolean)
 const steps = process.argv.slice(2)
 const wants = step => steps.length === 0 || steps.includes(step)
 
@@ -109,6 +118,13 @@ async function main() {
       await wait(600)
     }
     if (wants('panel')) await snap('panel', 'panel')
+    if (wants('glance')) {
+      writeAll(false)
+      await wait(600)
+      await snap('glance', 'hover')
+      await request('unhover')
+      await wait(400)
+    }
     if (wants('notice')) {
       await request('panel-close')
       writeAll(false)

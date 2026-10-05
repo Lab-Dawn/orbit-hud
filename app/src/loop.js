@@ -86,8 +86,8 @@ hud.on('debug', async word => {
     else if (word.startsWith('say:')) {
       chatText.value = word.slice(4)
       sendChat()
-    } else if (word === 'hover') {
-      S.isHovering = true
+    } else if (word === 'hover' || word === 'unhover') {
+      S.isHovering = word === 'hover'
       await update()
     } else if (word.startsWith('notice:')) {
       const [color, head, body] = word.slice(7).split('|')
@@ -148,9 +148,6 @@ async function snap() {
 // ---------- start ----------
 
 ;(async () => {
-  try {
-    await document.fonts.load(`15px Galmuri14`)
-  } catch {}
   S.area = await hud.area()
   const prefs = await hud.prefs()
   setScale([2, 3, 4].includes(prefs.scale) ? prefs.scale : 2)

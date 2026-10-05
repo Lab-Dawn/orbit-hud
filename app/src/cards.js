@@ -9,27 +9,28 @@ const OPTION_TEXT = 352
 function showGlance(list) {
   const body = $('glance-body')
   body.replaceChildren()
-  const inner = 368
-  if (S.account.length === 0) body.append(P.pixelText(['사용량 기다리는 중', 'Muted']))
+  const inner = 358
+  const small = { size: 'small' }
+  if (S.account.length === 0) body.append(P.pixelText(['사용량 기다리는 중', 'Muted'], small))
   for (const m of S.account) {
     const row = el('div', 'row')
     const left = el('div', 'grow')
-    left.append(P.pixelText([[`${m.label} `, 'Muted'], [`${m.pct}%`, P.level(m.pct)]]))
+    left.append(P.pixelText([[`${m.label} `, 'Muted'], [`${m.pct}%`, P.level(m.pct)]], small))
     row.append(left)
     const reset = formatReset(m.resetsAt)
-    if (reset) row.append(P.pixelText([reset, 'Faint']))
+    if (reset) row.append(P.pixelText([reset, 'Faint'], small))
     body.append(row)
   }
   body.append(el('div', 'pixel-rule'))
   const active = list.filter(s => s.state !== 'idle')
-  if (active.length === 0) body.append(P.pixelText([`세션 ${list.length}개 · 모두 대기 중`, 'Faint']))
+  if (active.length === 0) body.append(P.pixelText([`세션 ${list.length}개 · 모두 대기 중`, 'Faint'], small))
   for (const s of active) {
     const when = s.state === 'working' ? [formatClock(s.elapsed), 'Sub'] : s.state === 'ask' ? ['질문', 'Ask'] : ['완료', 'Done']
-    const right = P.pixelText(when)
+    const right = P.pixelText(when, small)
     right.style.marginLeft = '8px'
     const row = el('div', 'row')
     const left = el('div', 'grow')
-    left.append(P.pixelText([['● ', STATE_COLOR[s.state]], [s.title, 'Text']], { maxWidth: inner - parseFloat(right.style.width) - 8 }))
+    left.append(P.pixelText([['• ', STATE_COLOR[s.state]], [s.title, 'Text']], { ...small, maxWidth: inner - parseFloat(right.style.width) - 8 }))
     row.append(left, right)
     body.append(row)
   }

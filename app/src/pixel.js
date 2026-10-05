@@ -255,17 +255,62 @@ function icon(name, color, k = 2) {
   return c
 }
 
-// ---------- pixel lettering: Galmuri14 at its own size, enlarged twice ----------
+// ---------- pixel lettering: Galmuri's own bitmaps, enlarged twice ----------
+// Browsers smooth every font they draw, which fills the one-pixel gaps a pixel font
+// relies on; so the glyphs are drawn from the font's bitmaps (fonts/galmuri*.js), dot
+// by dot. The cards use Galmuri14; the glance, read at a look, the smaller Galmuri11.
 
-const FONT_PX = 15
-const LINE = 19
 const ZOOM = 2
-const FONT = `${FONT_PX}px Galmuri14`
-const measurer = document.createElement('canvas').getContext('2d')
+const fonts = {}
+function font(name) {
+  if (fonts[name]) return fonts[name]
+  const src = window.GalmuriFonts[name]
+  const raw = atob(src.data)
+  const bin = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) bin[i] = raw.charCodeAt(i)
+  const glyphs = new Map()
+  for (let i = 0; i < bin.length; ) {
+    const cp = (bin[i] << 16) | (bin[i + 1] << 8) | bin[i + 2]
+    const w = bin[i + 4]
+    const h = bin[i + 5]
+    const per = (w + 7) >> 3
+    glyphs.set(cp, { dw: bin[i + 3], w, h, xo: (bin[i + 6] << 24) >> 24, yo: (bin[i + 7] << 24) >> 24, at: i + 8, per })
+    i += 8 + per * h
+  }
+  // A line holds the tallest letters and the descenders, with a pixel above and below.
+  const { cap, desc } = METRICS[name]
+  fonts[name] = { base: 1 + cap, line: cap + desc + 2, glyphs, bin }
+  return fonts[name]
+}
+
+// Letter height above the baseline and descender depth, as the fonts are drawn.
+const METRICS = { galmuri14: { cap: 14, desc: 3 }, galmuri11: { cap: 11, desc: 2 } }
+const FACES = { normal: 'galmuri14', small: 'galmuri11' }
+let face = null
+const LINE = 19
+
+function glyphOf(ch) {
+  return face.glyphs.get(ch.codePointAt(0)) || face.glyphs.get(0x3f)
+}
 
 function measure(text) {
-  measurer.font = FONT
-  return Math.ceil(measurer.measureText(text).width)
+  let w = 0
+  for (const ch of text) w += glyphOf(ch).dw
+  return w
+}
+
+function drawGlyphs(ctx, text, x, top) {
+  const baseline = top + face.base
+  for (const ch of text) {
+    const g = glyphOf(ch)
+    for (let r = 0; r < g.h; r++) {
+      for (let c = 0; c < g.w; c++) {
+        if (face.bin[g.at + r * g.per + (c >> 3)] & (0x80 >> (c & 7))) ctx.fillRect(x + g.xo + c, baseline - g.yo - g.h + r, 1, 1)
+      }
+    }
+    x += g.dw
+  }
+  return x
 }
 
 // A leading check mark is drawn by hand, as a clean pixel tick.
@@ -278,8 +323,23 @@ function partWidth(text) {
 
 // parts: [[text, colourName], ...]. One line, cut with an ellipsis past maxWidth
 // (screen pixels), or with wrap the first part broken over lines to fit.
-function pixelText(parts, { maxWidth = 0, wrap = false } = {}) {
+const textCache = new Map()
+function pixelText(parts, { maxWidth = 0, wrap = false, size = 'normal' } = {}) {
   if (typeof parts[0] === 'string') parts = [parts]
+  face = font(FACES[size] || FACES.normal)
+  const key = `${size}|${maxWidth}|${wrap}|${JSON.stringify(parts)}`
+  let image = textCache.get(key)
+  if (!image) {
+    image = drawText(parts, maxWidth, wrap)
+    if (textCache.size > 600) textCache.clear()
+    textCache.set(key, image)
+  }
+  const c = pixelCanvas(image.width, image.height, ZOOM)
+  c.getContext('2d').putImageData(image, 0, 0)
+  return c
+}
+
+function drawText(parts, maxWidth, wrap) {
   const limit = maxWidth > 0 ? Math.floor(maxWidth / ZOOM) : 100000
   const lines = []
   if (wrap) {
@@ -319,32 +379,25 @@ function pixelText(parts, { maxWidth = 0, wrap = false } = {}) {
   }
   let width = 1
   for (const l of lines) width = Math.max(width, l.reduce((sum, [t]) => sum + partWidth(t), 0))
-  const c = pixelCanvas(width + 1, Math.max(1, lines.length) * LINE, ZOOM)
+  const c = document.createElement('canvas')
+  c.width = width + 1
+  c.height = Math.max(1, lines.length) * face.line
   const ctx = c.getContext('2d')
-  ctx.font = FONT
-  ctx.textBaseline = 'top'
   lines.forEach((l, row) => {
     let x = 0
-    const y = row * LINE + 2
+    const top = row * face.line
     for (let [text, color] of l) {
       ctx.fillStyle = COLORS[color] || color
       if (text.startsWith('✓')) {
-        for (const [dx, dy] of [[1, 7], [2, 8], [3, 9], [4, 8], [5, 7], [6, 6], [7, 5], [8, 4]]) ctx.fillRect(x + dx, y + dy - 1, 1, 2)
+        const y = top + face.base - 10
+        for (const [dx, dy] of [[1, 6], [2, 7], [3, 8], [4, 7], [5, 6], [6, 5], [7, 4], [8, 3]]) ctx.fillRect(x + dx, y + dy, 1, 2)
         x += CHECK_W
         text = text.slice(1)
       }
-      if (text) {
-        ctx.fillText(text, x, y)
-        x += measure(text)
-      }
+      if (text) x = drawGlyphs(ctx, text, x, top)
     }
   })
-  // Hard pixels only: whatever the browser smoothed is either in or out.
-  const img = ctx.getImageData(0, 0, c.width, c.height)
-  const d = img.data
-  for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 128 ? 255 : 0
-  ctx.putImageData(img, 0, 0)
-  return c
+  return ctx.getImageData(0, 0, c.width, c.height)
 }
 
 window.Pixel = {
