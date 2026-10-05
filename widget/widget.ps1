@@ -642,7 +642,7 @@ function Set-Layout {
   $area = Get-WorkArea
   # With the panel shut, keep deciding where it would open, so the cards can
   # already stand clear of it.
-  if (-not $hasPanel) { $script:isAbove = ($script:coreTop - $script:panelTall - $panelGap) -ge $area.Top }
+  if (-not $hasPanel -and -not $script:drag) { $script:isAbove = ($script:coreTop - $script:panelTall - $panelGap) -ge $area.Top }
   if ($ph -gt $script:panelTall) { $script:panelTall = $ph }
   $panelX = if ($script:isCardsLeft) { $s - $panelWidth } else { 0 }
   $panelY = if ($script:isAbove) { -$panelGap - $ph } else { $s + $panelGap }
@@ -738,6 +738,7 @@ function Set-Layout {
 # The panel opens upward when it fits above the core on its monitor, otherwise
 # downward; decided once per opening (and while dragging), flipped only if it stops fitting.
 function Set-PanelSide {
+  if ($script:drag -and $script:isSideSet) { return }
   $panel.Measure((New-Object System.Windows.Size ([double]::PositiveInfinity), ([double]::PositiveInfinity)))
   $script:panelTall = $panel.DesiredSize.Height
   $need = $panel.DesiredSize.Height + $panelGap
@@ -787,8 +788,44 @@ function Set-CardOrder([bool]$isDown) {
   foreach ($c in $order) { [void]$callouts.Children.Add($c) }
 }
 
+# After a drag, the sides are settled for the new spot. When they change, the
+# window changes size and the content moves within it, and those two seldom show
+# on the same frame; so the widget fades out, rearranges unseen, and fades back.
+function Set-SidesAfterDrag {
+  $area = Get-WorkArea
+  $willLeft = ($script:left + $script:coreCenter) -gt (($area.Left + $area.Right) / 2)
+  $tall = if ($panel.Visibility -eq 'Visible') { $panel.DesiredSize.Height } else { $script:panelTall }
+  $willAbove = ($script:coreTop - $tall - $panelGap) -ge $area.Top
+  if ($willLeft -eq $script:isCardsLeft -and $willAbove -eq $script:isAbove) { return }
+  $out = New-Object System.Windows.Media.Animation.DoubleAnimation 0, (New-Duration 60)
+  $root.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $out)
+  $settle = New-Object System.Windows.Threading.DispatcherTimer
+  $settle.Interval = [TimeSpan]::FromMilliseconds(90)
+  $settle.Add_Tick({
+    param($sender, $e)
+    $sender.Stop()
+    try {
+      Set-CardSide
+      $script:isSideSet = $false
+      if ($panel.Visibility -eq 'Visible') { Set-PanelSide }
+      Set-Layout
+    } catch { Write-Failure $_ }
+    $back = New-Object System.Windows.Threading.DispatcherTimer
+    $back.Interval = [TimeSpan]::FromMilliseconds(60)
+    $back.Add_Tick({
+      param($sender, $e)
+      $sender.Stop()
+      $in = New-Object System.Windows.Media.Animation.DoubleAnimation 0, 1, (New-Duration 120)
+      $root.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $in)
+    })
+    $back.Start()
+  })
+  $settle.Start()
+}
+
 # Cards come out on the side of the core facing the middle of its monitor.
 function Set-CardSide {
+  if ($script:drag) { return }
   $area = Get-WorkArea
   $isLeft = ($script:left + $script:coreCenter) -gt (($area.Left + $area.Right) / 2)
   if ($isLeft -eq $script:isCardsLeft) { return }
@@ -870,11 +907,9 @@ $window.Add_MouseMove({
   $script:drag.isMoved = $true
   $script:left = $script:drag.left + $dx
   $script:coreTop = $script:drag.top + $dy
-  Set-CardSide
-  if ($panel.Visibility -eq 'Visible') {
-    $script:isSideSet = $false
-    Set-PanelSide
-  }
+  # The sides cards and panel open towards stay put while dragging (they are
+  # settled on release): flipping them mid-drag resizes the window, and crossing
+  # onto another monitor would flip them right at its edge.
   Set-Layout
 })
 
@@ -885,6 +920,7 @@ $window.Add_MouseLeftButtonUp({
   $window.ReleaseMouseCapture()
   if ($drag.isMoved) {
     Save-Prefs
+    Set-SidesAfterDrag
   } elseif ($drag.isOnCore) {
     $script:isOpen = -not $script:isOpen
     $script:isSideSet = $false
@@ -2478,6 +2514,15 @@ $timer.Add_Tick({
       elseif ($wanted.StartsWith('act:')) { Invoke-QuestionAction $wanted.Substring(4) }
       elseif ($wanted.StartsWith('say:')) { $chatInput.Text = $wanted.Substring(4); Send-ChatPrompt }
       elseif ($wanted -eq 'hover') { $script:isHovering = $true; Update-View }
+      elseif ($wanted.StartsWith('drag:')) {
+        # A drag to x,y and a release there, as the mouse would do it.
+        $to = $wanted.Substring(5).Split(',')
+        $script:drag = @{ isMoved = $true }
+        $script:left = [double]$to[0]; $script:coreTop = [double]$to[1]
+        Set-Layout
+        $script:drag = $null
+        Set-SidesAfterDrag
+      }
       elseif ($wanted -eq 'panel-close') { if ($script:chatId) { Set-ChatSession $script:chatId }; $script:isOpen = $false; Update-View }
       elseif ($wanted.StartsWith('notice:')) {
         $parts = $wanted.Substring(7).Split('|')
