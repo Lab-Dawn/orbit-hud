@@ -1,0 +1,11 @@
+{
+  "name": "orbit-hud-widget",
+  "version": "0.2.0",
+  "private": true,
+  "description": "The floating widget of orbit-hud: a pixel core that watches Claude Code sessions",
+  "main": "main.js",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^38.0.0"
+  }
+}

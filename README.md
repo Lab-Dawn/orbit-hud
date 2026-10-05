@@ -10,8 +10,9 @@
 픽셀 아트 플로팅 HUD예요.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-D97757)
-![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?logo=powershell&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-38-47848F?logo=electron&logoColor=white)
 ![Local](https://img.shields.io/badge/통신-로컬%20전용-22D3EE)
 [![License: MIT](https://img.shields.io/badge/License-MIT-4ADE80)](LICENSE)
 
@@ -86,13 +87,13 @@ Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 
 | 코어 **드래그** | 원하는 곳으로 옮기기 (위치는 기억해요) |
 | 코어에 **마우스 올리기** | 사용량 카드 보기 |
 | 코어 **우클릭** | 코어 크기, 위치 초기화, 숨기기, 종료 |
-| **`Ctrl` + `Alt` + `O`** | 어디서든 위젯 숨기기 / 보이기 |
+| **`Ctrl` + `Alt` + `O`** (맥: `Control` + `Option` + `O`) | 어디서든 위젯 숨기기 / 보이기 |
 | `/hud on` · `/hud off` | Claude Code에서 위젯 켜기 / 숨기기 |
 | 세션 행 **클릭** | 채팅 카드 열기 (`Enter` 보내기 · `Shift+Enter` 줄바꿈 · `Esc` 닫기) |
 
 ## 설치
 
-**필요한 것:** Windows 10/11, 플러그인 함수 훅을 지원하는 Claude Code 데스크톱 앱. PowerShell 5.1은 Windows에 기본으로 들어 있어요.
+**필요한 것:** Windows 10/11 또는 macOS, 플러그인 함수 훅을 지원하는 Claude Code 데스크톱 앱, [Node.js](https://nodejs.org) 18 이상.
 
 1. 저장소를 받아요.
 
@@ -111,7 +112,11 @@ Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 
    }
    ```
 
+   맥이라면 경로를 `/Users/<이름>/path/to/orbit-hud`처럼 써요.
+
 3. Claude Code를 다시 시작하면 세션이 시작될 때 코어가 화면 오른쪽 아래에 떠요.
+
+처음 한 번은 위젯이 쓰는 Electron(약 100MB)을 `~/.claude/orbit-hud-live/runtime`에 내려받느라 1분쯤 걸려요. 플러그인 폴더에는 아무것도 깔지 않아요. `git clone`으로 받아 쓰는 방식이라 맥에서도 개발자 서명이나 따로 허용할 것 없이 실행돼요.
 
 > 코드를 고치면서 쓸 거라면 `"CLAUDE_CODE_PLUGIN_DIR_WATCH": "1"`도 넣어 두세요. 저장하는 즉시 다시 불러와요.
 
@@ -123,7 +128,7 @@ flowchart LR
     P["플러그인<br/>hooks/register.tsx"]
   end
   F[("~/.claude/orbit-hud-live/<br/>JSON 파일")]
-  W["위젯<br/>widget/widget.ps1 (WPF)"]
+  W["위젯<br/>app/ (Electron)"]
   P -- "상태 · 사용량 · 질문 · 대화" --> F
   F --> W
   W -- "압축 · 답변 · 메시지" --> F
@@ -132,7 +137,7 @@ flowchart LR
 
 - 세션마다 플러그인이 자기 상태를 `sessions/<세션 id>.json`에 써요. 위젯 하나가 그 파일들을 모아 보여 줘요.
 - 위젯에서 누른 압축, 답변, 메시지는 파일로 돌아가고, 해당 세션의 플러그인이 받아서 처리해요.
-- 주고받는 건 전부 내 컴퓨터 안의 파일이에요. 외부로 나가는 통신은 없어요.
+- 주고받는 건 전부 내 컴퓨터 안의 파일이에요. 처음에 Electron을 내려받는 것 말고는 외부로 나가는 통신이 없어요.
 
 ## 토큰과 개인정보
 
@@ -142,7 +147,6 @@ flowchart LR
 
 ## 알아 둘 점
 
-- Windows 전용이에요. 위젯이 WPF로 만들어져 있어요.
 - `5h ≈N%`는 추정치예요. Claude Code 밖(웹, 다른 기기)에서 쓴 양은 세션별로 나눌 수 없어요.
 - 위젯에서 보낸 메시지는 대화 기록에 플러그인이 보낸 것으로 남아요.
 - 대기 중인 메시지는 위젯 메모리에만 있어서, 위젯을 다시 띄우면 사라져요.
@@ -152,10 +156,13 @@ flowchart LR
 | 경로 | 내용 |
 | --- | --- |
 | `hooks/register.tsx` | 플러그인: 세션 상태를 내보내고 위젯의 요청(압축, 답변, 메시지)을 처리 |
-| `widget/widget.ps1` | 위젯: 픽셀 아트 코어, 카드, 패널, 채팅 (PowerShell + WPF) |
+| `app/` | 위젯: 픽셀 아트 코어, 카드, 패널, 채팅 (Electron, Windows와 macOS 공용) |
+| `app/launch.js` | 위젯 실행기: 처음엔 Electron을 설치하고 위젯을 띄워요 |
 | `types/index.d.ts` | 플러그인 상태 타입 |
 | `docs/tools/` | README 이미지를 가짜 데모 세션으로 다시 찍는 스크립트 |
 
 ## 라이선스
 
 [MIT](LICENSE). 누구나 자유롭게 쓰고, 고치고, 다시 배포해도 돼요. 저작권 표시만 남겨 주세요.
+
+도트 글씨에 쓴 [갈무리](https://galmuri.quiple.dev) 글꼴은 SIL 오픈 폰트 라이선스 1.1을 따라요 (`app/fonts/Galmuri-OFL.txt`).

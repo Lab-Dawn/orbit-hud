@@ -112,7 +112,8 @@ let liveFile = ''
 let widgetCommandFile = ''
 let commandFile = ''
 let answerFile = ''
-let widgetScript = ''
+let widgetApp = ''
+let liveDir = ''
 let ticker: { cancel: () => void } | undefined
 let publishing: { cancel: () => void } | undefined
 let poller: { cancel: () => void } | undefined
@@ -593,22 +594,38 @@ async function waitForAnswer(
   return null
 }
 
-// Starts the widget; it keeps itself to one instance, so a second launch exits at once.
+// Starts the widget (an Electron app, the same on Windows and macOS) through its
+// launcher, which installs Electron the first time. The widget keeps to one instance,
+// so a second start just exits.
 async function launchWidget($: EngineInterface) {
-  if (!widgetScript) return
-  const args = `'-NoProfile','-STA','-ExecutionPolicy','Bypass','-File','"${widgetScript}"'`
-  await $.process.run(
-    ['powershell.exe', '-NoProfile', '-Command', `Start-Process powershell.exe -WindowStyle Hidden -ArgumentList ${args}`],
-    { timeoutMs: 15_000 },
-  )
+  if (!widgetApp) return
+  const isFirst = !(await $.fs.exists(`${liveDir}/runtime/node_modules/electron/package.json`)) &&
+    !(await $.fs.exists(`${widgetApp}/node_modules/electron/package.json`))
+  if (isFirst) $.ui.toast('Orbit 위젯을 처음 준비하고 있어요. Electron을 내려받느라 1분쯤 걸릴 수 있어요.')
+  let result: { exitCode: number; stderr: string }
+  try {
+    result = await $.process.run(['node', `${widgetApp}/launch.js`], { timeoutMs: 600_000 })
+  } catch {
+    $.ui.toast('Orbit 위젯을 띄우지 못했어요. Node.js가 설치되어 있는지 확인해 주세요.')
+    return
+  }
+  if (result.exitCode !== 0) $.ui.toast(`Orbit 위젯을 띄우지 못했어요: ${result.stderr.trim().slice(-200)}`)
+}
+
+// The home folder, on Windows and elsewhere.
+async function homeDir($: EngineInterface): Promise<string> {
+  const home = (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')) ?? ''
+  return slash(home).replace(/\/$/, '')
 }
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     cwd = e.cwd
-    // Live files sit outside the plugin folder so writing them never triggers a reload.
+    // Live files sit in the home folder, outside the plugin folder, so writing them never
+    // triggers a reload and the widget finds them wherever the plugin is installed.
     const root = slash($.plugin.root)
-    const live = `${parent(parent(root))}/orbit-hud-live`
+    const live = `${await homeDir($)}/.claude/orbit-hud-live`
+    liveDir = live
     const id = await $.session.id()
     liveFile = `${live}/sessions/${id}.json`
     commandFile = `${live}/commands/${id}.json`
@@ -617,7 +634,7 @@ export const register: Register = on => {
     chatFile = `${live}/chat/${id}.json`
     watchFile = `${live}/chat/${id}.watch`
     promptFile = `${live}/prompts/${id}.json`
-    widgetScript = `${root}/widget/widget.ps1`
+    widgetApp = `${root}/app`
     poller?.cancel()
     let ticks = 0
     poller = $.clock.every(1000, () => {

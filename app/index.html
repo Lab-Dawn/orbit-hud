@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
+  <title>Orbit HUD</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="root">
+    <!-- The panel: the account's usage, then a row per session. -->
+    <div id="panel" class="shadow hit" hidden><div class="frame frame--panel">
+      <div class="frame__in">
+        <div id="usage"></div>
+        <div class="rule"></div>
+        <div id="list-label" class="list-label"></div>
+        <div id="sessions"></div>
+      </div>
+    </div></div>
+
+    <!-- The chat card, beside the panel. -->
+    <div id="chat" class="shadow hit" hidden><div class="frame frame--chat">
+      <div class="frame__in">
+        <div class="chat__head">
+          <canvas id="chat-mini" class="px"></canvas>
+          <span id="chat-title" class="chat__title"></span>
+          <span id="chat-close" class="chat__close" title="닫기 (Esc)"></span>
+        </div>
+        <div class="chat__well"><div id="chat-lines" class="chat__lines"></div></div>
+        <div class="chat__input">
+          <div class="chat__field">
+            <textarea id="chat-text" rows="1" placeholder="메시지 보내기" spellcheck="false"></textarea>
+          </div>
+          <button id="chat-send" class="chat__send" title="보내기 (Enter)"></button>
+        </div>
+        <div id="chat-status" class="chat__status" hidden></div>
+      </div>
+    </div></div>
+
+    <!-- The core, and the cards that slide out of it. -->
+    <canvas id="core" class="px hit" width="32" height="32"></canvas>
+    <div id="callouts">
+      <div id="question" class="frame frame--ask card hit" hidden><div class="frame__in" id="question-body"></div></div>
+      <div id="notice" class="frame card hit" hidden><div class="frame__in" id="notice-body"></div></div>
+      <div id="glance" class="frame frame--glance card hit" hidden><div class="frame__in" id="glance-body"></div></div>
+    </div>
+  </div>
+  <script src="src/pixel.js"></script>
+  <script src="src/app.js"></script>
+  <script src="src/cards.js"></script>
+  <script src="src/panel.js"></script>
+  <script src="src/chat.js"></script>
+  <script src="src/loop.js"></script>
+</body>
+</html>

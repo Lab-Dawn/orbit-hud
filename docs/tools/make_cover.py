@@ -25,19 +25,27 @@ def pixel_text(text, size, color, scale):
     return img.resize((img.width * scale, img.height * scale), Image.NEAREST)
 
 
-def crop_card(name, right_limit=835):
-    """The card alone from a widget snapshot: everything drawn left of the core."""
-    img = Image.open(os.path.join(RAW, f"{name}.png")).convert("RGBA")
-    px = img.load()
-    bg = px[2, img.height - 2]
-    xs, ys = [], []
-    for y in range(0, img.height, 2):
-        for x in range(0, right_limit, 2):
-            r, g, b, _ = px[x, y]
-            if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) > 18:
-                xs.append(x)
-                ys.append(y)
-    return img.crop((min(xs), min(ys), max(xs) + 10, max(ys) + 10))
+def crop_card(name):
+    """The card alone from a widget picture: the columns left of the gap before the core."""
+    shot = Image.open(os.path.join(RAW, f"{name}.png")).convert("RGBA")
+    px = shot.load()
+    w, h = shot.size
+    busy = [any(px[x, y][3] > 40 for y in range(0, h, 2)) for x in range(w)]
+    x = w - 1
+    while x > 0 and not busy[x]:
+        x -= 1
+    while x > 0 and busy[x]:  # the core
+        x -= 1
+    while x > 0 and not busy[x]:  # the gap
+        x -= 1
+    right = x + 1
+    rows = [y for y in range(h) if any(px[c, y][3] > 40 for c in range(0, right, 2))]
+    cols = [c for c in range(right) if busy[c]]
+    card = shot.crop((min(cols), min(rows), right + 6, max(rows) + 6))
+    # The widget draws cards solid; the picture's soft alpha would let the backdrop through.
+    r, g, b, a = card.split()
+    a = a.point(lambda v: 255 if v > 8 else 0)
+    return Image.merge("RGBA", (r, g, b, a))
 
 
 def drop_shadow(card, offset=10, blur=18, alpha=150):
@@ -64,7 +72,7 @@ def main():
     canvas = Image.alpha_composite(canvas, dots)
 
     # The core, large, with a soft cyan halo and a dotted orbit around it.
-    cx, cy, k = 1110, 500, 13
+    cx, cy, k = 1152, 500, 13
     halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     hd = ImageDraw.Draw(halo)
     for r, a in ((330, 22), (250, 34), (190, 46)):
@@ -99,8 +107,7 @@ def main():
     notice = crop_card("notice")
     notice = notice.resize((notice.width // 2, notice.height // 2), Image.NEAREST)
     # The question stands beside the core as the widget shows it; the notice below.
-    qx = cx - 32 * k // 2 - 24 - question.width
-    for card, (x, y) in ((question, (qx, cy - 120)), (notice, (cx - 150, cy + 32 * k // 2 + 70))):
+    for card, (x, y) in ((question, (470, cy - 146)), (notice, (930, cy + 32 * k // 2 + 84))):
         shadow, pad = drop_shadow(card)
         canvas.alpha_composite(shadow, (x - pad, y - pad))
         canvas.alpha_composite(card, (x, y))

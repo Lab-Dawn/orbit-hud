@@ -9,7 +9,10 @@ PAD = 28
 
 
 def crop(name):
-    img = Image.open(os.path.join(RAW, f"{name}.png")).convert("RGB")
+    shot = Image.open(os.path.join(RAW, f"{name}.png")).convert("RGBA")
+    img = Image.new("RGBA", shot.size, BG + (255,))
+    img.alpha_composite(shot)
+    img = img.convert("RGB")
     px = img.load()
     w, h = img.size
     xs, ys = [], []
