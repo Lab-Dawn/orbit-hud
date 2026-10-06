@@ -182,7 +182,7 @@ hud.on('lang', async lang => {
     S.left = p.left
     S.top = p.top
   }
-  setCardSide()
+  setCardSide(true)
   drawCore()
   await update()
   setInterval(update, 500)

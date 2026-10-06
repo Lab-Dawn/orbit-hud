@@ -304,9 +304,9 @@ function coreSize() {
 }
 
 // Cards come out on the side of the core facing the middle of its monitor.
-function setCardSide() {
+function setCardSide(isFresh) {
   if (S.drag) return
-  const isLeft = S.left + coreSize() / 2 > S.area.x + S.area.width / 2
+  const isLeft = sides(isFresh).willLeft
   S.isCardsLeft = isLeft
   callouts.classList.toggle('is-left', isLeft)
   callouts.classList.toggle('is-right', !isLeft)
@@ -338,7 +338,7 @@ function layout() {
   const hasChat = hasPanel && !chat.hidden
   const ph = hasPanel ? panel.offsetHeight : 0
   if (ph > S.panelTall) S.panelTall = ph
-  if (!hasPanel && !S.drag) S.isAbove = cy - S.panelTall - PANEL_GAP >= 0
+  if (!hasPanel && !S.drag) S.isAbove = sides(false).willAbove
   const cw = callouts.offsetWidth
   const ch = callouts.offsetHeight
   const panelX = S.isCardsLeft ? s - PANEL_W : 0
@@ -421,13 +421,29 @@ core.addEventListener('pointermove', async e => {
   d.isMoved = true
   S.left = d.left + dx
   S.top = d.top + dy
-  // Past this monitor's edge, the window goes to the monitor under the core.
+  // While the window is going to another monitor, the pieces wait for the new area.
+  if (d.isCrossing) return
+  // Past this monitor's edge, the window goes to the monitor under the core. The
+  // window and the pieces can't move in the same frame, so the pieces are hidden for
+  // the switch and come back already in place.
   const center = { x: Math.round(S.left + coreSize() / 2), y: Math.round(S.top + coreSize() / 2) }
   const a = S.area
   if (center.x < a.x || center.x >= a.x + a.width || center.y < a.y || center.y >= a.y + a.height) {
+    d.isCrossing = true
+    const root = $('root')
+    root.style.transition = 'none'
+    root.style.opacity = '0'
     const area = await hud.moveCore(center)
     if (area) S.area = area
+    d.isCrossing = false
+    followSides(true)
+    layout()
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      root.style.opacity = '1'
+    }))
+    return
   }
+  followSides(false)
   layout()
 })
 
@@ -438,7 +454,8 @@ core.addEventListener('pointerup', e => {
   core.releasePointerCapture(e.pointerId)
   if (d.isMoved) {
     hud.savePrefs({ left: S.left, top: S.top })
-    settleSides()
+    $('root').style.opacity = '1'
+    layout()
   } else {
     S.isOpen = !S.isOpen
     S.isSideSet = false
@@ -447,30 +464,37 @@ core.addEventListener('pointerup', e => {
   }
 })
 
-// After a drag, the sides cards and panel open towards are settled for the new spot;
-// when they change, everything fades out for a moment and back in at its new place.
-function settleSides() {
-  const willLeft = S.left + coreSize() / 2 > S.area.x + S.area.width / 2
+// While dragging, the sides cards and panel open towards follow the core as it goes:
+// past the middle of the monitor the cards change sides, near the top the panel opens
+// downward. A margin keeps them from flapping when the core rests near the line; on a
+// new monitor (isFresh) they are simply decided anew. What changes side fades in.
+const SIDE_MARGIN = 40
+function sides(isFresh) {
+  const mid = S.left + coreSize() / 2 - (S.area.x + S.area.width / 2)
+  let willLeft = S.isCardsLeft
+  if (isFresh) willLeft = mid > 0
+  else if (mid > SIDE_MARGIN) willLeft = true
+  else if (mid < -SIDE_MARGIN) willLeft = false
   const ph = panel.hidden ? S.panelTall : panel.offsetHeight
-  const willAbove = S.top - S.area.y - ph - PANEL_GAP >= 0
-  if (willLeft === S.isCardsLeft && willAbove === S.isAbove) {
-    layout()
-    return
+  const room = S.top - S.area.y - ph - PANEL_GAP
+  let willAbove = S.isAbove
+  if (isFresh) willAbove = room >= 0
+  else if (room >= SIDE_MARGIN / 2) willAbove = true
+  else if (room < 0) willAbove = false
+  return { willLeft, willAbove }
+}
+
+function followSides(isFresh) {
+  const { willLeft, willAbove } = sides(isFresh)
+  if (willLeft === S.isCardsLeft && willAbove === S.isAbove) return
+  S.isCardsLeft = willLeft
+  callouts.classList.toggle('is-left', willLeft)
+  callouts.classList.toggle('is-right', !willLeft)
+  S.isAbove = willAbove
+  S.isSideSet = true
+  for (const el of [callouts, panel, chat]) {
+    if (!el.hidden) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' })
   }
-  const root = $('root')
-  root.style.transition = 'opacity 60ms'
-  root.style.opacity = '0'
-  setTimeout(() => {
-    setCardSide()
-    S.isSideSet = false
-    if (!panel.hidden) setPanelSide()
-    layout()
-    S.cardsAt = null
-    setTimeout(() => {
-      root.style.transition = 'opacity 120ms'
-      root.style.opacity = '1'
-    }, 60)
-  }, 90)
 }
 
 core.addEventListener('pointerenter', () => {
@@ -509,7 +533,7 @@ hud.on('reset-position', () => {
   S.top = p.top
   hud.savePrefs({ left: S.left, top: S.top })
   S.isSideSet = false
-  setCardSide()
+  setCardSide(true)
   update()
 })
 
