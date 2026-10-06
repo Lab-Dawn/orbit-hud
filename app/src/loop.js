@@ -103,6 +103,9 @@ hud.on('debug', async word => {
       await update()
       setChatSession(word.slice(5))
       await update()
+    } else if (word.startsWith('cachetip:')) {
+      const row = rows.get(word.slice(9))
+      if (row) showCacheTip(row)
     } else if (word === 'panel') {
       S.isOpen = true
       S.isSideSet = false
@@ -145,9 +148,29 @@ async function snap() {
   hud.snap({ x: Math.max(0, Math.floor(x1 - pad)), y: Math.max(0, Math.floor(y1 - pad)), width: Math.ceil(x2 - x1 + pad * 2), height: Math.ceil(y2 - y1 + pad * 2) })
 }
 
+// ---------- language ----------
+// The page's own words follow at once; the rows, cards and chat are drawn again.
+
+function setLang(lang) {
+  window.I18N.setLang(lang)
+  document.documentElement.lang = lang
+  for (const node of document.querySelectorAll('[data-i18n-title]')) node.title = tr(node.dataset.i18nTitle)
+  for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = tr(node.dataset.i18nPlaceholder)
+}
+
+hud.on('lang', async lang => {
+  setLang(lang)
+  for (const row of rows.values()) row.node.remove()
+  rows.clear()
+  hideCacheTip()
+  await update()
+  if (chatId) showChat()
+})
+
 // ---------- start ----------
 
 ;(async () => {
+  setLang(await hud.lang())
   S.area = await hud.area()
   const prefs = await hud.prefs()
   setScale([2, 3, 4].includes(prefs.scale) ? prefs.scale : 2)

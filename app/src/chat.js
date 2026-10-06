@@ -12,6 +12,8 @@ const chatLines = $('chat-lines')
 const chatText = $('chat-text')
 const chatStatus = $('chat-status')
 const chatMini = $('chat-mini')
+const chatFile = $('chat-file')
+const chatFiles = $('chat-files')
 chatMini.width = P.MINI
 chatMini.height = P.MINI
 
@@ -22,6 +24,11 @@ $('chat-send').append(arrow)
 $('chat-send').addEventListener('click', e => {
   e.stopPropagation()
   sendChat()
+})
+$('chat-attach').append(P.icon('clip', 'Muted'))
+$('chat-attach').addEventListener('click', e => {
+  e.stopPropagation()
+  chatFile.click()
 })
 $('chat-close').addEventListener('click', e => {
   e.stopPropagation()
@@ -42,6 +49,66 @@ chatText.addEventListener('keydown', e => {
 chatText.addEventListener('input', () => {
   chatText.style.height = 'auto'
   chatText.style.height = `${Math.min(80, chatText.scrollHeight + 4)}px`
+})
+
+// ---------- attachments: picked, pasted or dropped, sent as paths the session reads ----------
+// A prompt the widget hands over is text alone, so a file goes in as its path; a
+// pasted one, which has none, is saved in the live folder first.
+
+let attachments = []
+
+async function addFiles(files) {
+  for (const file of files) {
+    try {
+      let full = hud.pathOf(file)
+      if (!full) full = await hud.saveAttachment(file.name || 'pasted.png', await file.arrayBuffer())
+      if (full && !attachments.some(a => a.path === full)) attachments.push({ name: file.name || full.split(/[\\/]/).pop(), path: full })
+    } catch {
+      setChatStatus(tr('chat.attachFailed', { name: file.name || tr('chat.file') }), 'Warn')
+    }
+  }
+  showAttachments()
+}
+
+function showAttachments() {
+  chatFiles.replaceChildren()
+  chatFiles.hidden = attachments.length === 0
+  for (const a of attachments) {
+    const chip = el('div', 'file-chip')
+    chip.title = a.path
+    const x = el('span', 'x', '×')
+    x.title = tr('chat.remove')
+    x.addEventListener('click', e => {
+      e.stopPropagation()
+      attachments = attachments.filter(b => b !== a)
+      showAttachments()
+    })
+    chip.append(el('span', 'name', a.name), x)
+    chatFiles.append(chip)
+  }
+  layout()
+}
+
+chatFile.addEventListener('change', () => {
+  void addFiles([...chatFile.files])
+  chatFile.value = ''
+})
+chatText.addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.files || [])]
+  if (files.length === 0) return
+  e.preventDefault()
+  void addFiles(files)
+})
+// A file dropped anywhere else would open in the window; only the chat takes one.
+for (const type of ['dragover', 'drop']) document.addEventListener(type, e => e.preventDefault())
+chat.addEventListener('dragover', e => {
+  if (e.dataTransfer?.types.includes('Files')) chat.classList.add('is-drop')
+})
+chat.addEventListener('dragleave', () => chat.classList.remove('is-drop'))
+chat.addEventListener('drop', e => {
+  chat.classList.remove('is-drop')
+  const files = [...(e.dataTransfer?.files || [])]
+  if (files.length > 0) void addFiles(files)
 })
 
 function setChatStatus(text, color = 'Faint') {
@@ -85,8 +152,8 @@ function showChat() {
   const box = outboxes.get(chatId)
   if (box) for (const item of [...box]) if (isDelivered(item, data)) box.splice(box.indexOf(item), 1)
   const lines = data ? data.lines || [] : []
-  if (!data && !(box && box.length)) chatLines.append(el('div', 'msg-empty', '불러오는 중…'))
-  else if (lines.length === 0 && !(box && box.length)) chatLines.append(el('div', 'msg-empty', '아직 대화가 없어요'))
+  if (!data && !(box && box.length)) chatLines.append(el('div', 'msg-empty', tr('chat.loading')))
+  else if (lines.length === 0 && !(box && box.length)) chatLines.append(el('div', 'msg-empty', tr('chat.empty')))
   for (const l of lines) {
     if (l.role === 'user') chatLines.append(el('div', 'msg-user', String(l.text)))
     else if (l.role === 'assistant') chatLines.append(el('div', 'msg-ai', String(l.text)))
@@ -98,9 +165,9 @@ function showChat() {
       chatLines.append(bubble)
       if (item.state === 'queued') {
         const note = el('div', 'msg-note')
-        note.append(el('span', null, '대기 중 · 작업이 끝나면 보내요'))
-        const cancel = el('span', 'cancel', '취소')
-        cancel.title = '보내지 않고 지우기'
+        note.append(el('span', null, tr('chat.queued')))
+        const cancel = el('span', 'cancel', tr('chat.cancel'))
+        cancel.title = tr('chat.cancelTip')
         cancel.addEventListener('click', e => {
           e.stopPropagation()
           removeOutgoing(item.id)
@@ -115,7 +182,7 @@ function showChat() {
   if (isActive || (box && box.length)) {
     const loader = el('div', 'loader')
     loader.append(el('i'), el('i'), el('i'))
-    if (isActive) loader.append(document.createTextNode('작업 중'))
+    if (isActive) loader.append(document.createTextNode(tr('chat.working')))
     chatLines.append(loader)
   }
   if (atEnd || !chatStamp) chatLines.scrollTop = chatLines.scrollHeight
@@ -148,7 +215,7 @@ async function sendOutboxes() {
         } else if (now - item.at > 15000) {
           box.splice(box.indexOf(item), 1)
           changed = true
-          if (sid === chatId) setChatStatus('세션이 받지 않았어요 · 플러그인이 다시 불러와지는 중일 수 있어요', 'Warn')
+          if (sid === chatId) setChatStatus(tr('chat.notTaken'), 'Warn')
         }
       } else if (item.state === 'taken' && now - item.at > 600000) {
         box.splice(box.indexOf(item), 1)
@@ -174,9 +241,13 @@ async function sendOutboxes() {
 }
 
 function sendChat() {
-  const text = chatText.value.trim()
+  const typed = chatText.value.trim()
   const id = chatId
-  if (!text || !id) return
+  if ((!typed && attachments.length === 0) || !id) return
+  const files = attachments.map(a => `- ${a.path}`).join('\n')
+  const text = attachments.length === 0 ? typed : `${typed || tr('chat.seeFiles')}\n\n${tr('chat.filesHead')}\n${files}`
+  attachments = []
+  showAttachments()
   if (!outboxes.has(id)) outboxes.set(id, [])
   const prefix = prefixOf(text)
   outboxes.get(id).push({ id: crypto.randomUUID(), text, prefix, baseline: userCount(chatData, prefix), state: 'queued', at: Date.now() })
@@ -194,6 +265,8 @@ function setChatSession(id) {
   chatId = id
   chatStamp = 0
   chatData = null
+  attachments = []
+  showAttachments()
   setChatStatus('')
   if (id && rows.has(id)) {
     chatText.value = ''
@@ -242,7 +315,7 @@ async function updateChat() {
     const i = box.findIndex(x => x.id === data.ack.id)
     if (i >= 0) {
       box.splice(i, 1)
-      setChatStatus(`보내지 못했어요: ${data.ack.error}`, 'Danger')
+      setChatStatus(tr('chat.sendFailed', { error: data.ack.error }), 'Danger')
     }
   }
   showChat()

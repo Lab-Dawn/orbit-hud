@@ -2,6 +2,8 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionMessage } from 'claude-code'
 
 import type { Limit, Spend, Touch, TouchKind, Usage, Work } from '../types'
+import { currentLang, intlLocale, langFromPref, langFromTag, setLang, t } from './i18n.ts'
+import type { Key, Lang } from './i18n.ts'
 
 const PANE = 'hud-work'
 const RECENT = 5
@@ -76,14 +78,7 @@ const KIND_GLYPH: Record<TouchKind, string> = {
   run: '›',
   web: '◎',
 }
-const KIND_LABEL: Record<TouchKind, string> = {
-  read: '읽기',
-  edit: '수정',
-  write: '생성',
-  search: '검색',
-  run: '실행',
-  web: '웹',
-}
+const kindLabel = (kind: TouchKind) => t(`kind.${kind}`)
 const KIND_RANK: Record<TouchKind, number> = {
   read: 0,
   search: 0,
@@ -92,10 +87,14 @@ const KIND_RANK: Record<TouchKind, number> = {
   edit: 1,
   write: 2,
 }
-const LIMIT_LABEL: Record<string, string> = {
-  five_hour: '5시간',
-  seven_day: '7일',
-  spend_limit: '한도',
+const LIMIT_KEYS: Record<string, Key> = {
+  five_hour: 'limit.five_hour',
+  seven_day: 'limit.seven_day',
+  spend_limit: 'limit.spend_limit',
+}
+const limitLabel = (kind: string) => {
+  const key = LIMIT_KEYS[kind]
+  return key ? t(key) : kind
 }
 // The widget's pill is narrow, so it uses short tags.
 const LIMIT_SHORT: Record<string, string> = {
@@ -139,6 +138,9 @@ type Question = {
 let pendingQuestion: { id: string; questions: Question[] } | null = null
 // The last compaction that failed, with why, so the widget can say so.
 let compactError: { message: string; at: number } | null = null
+// The session's transcript, where each response's cache figures are written down; the
+// widget reads its prompt cache from there (warmth, time to live, how much it served).
+let transcriptPath = ''
 
 const slash = (p: string) => p.replace(/\\/g, '/')
 const parent = (p: string) => p.slice(0, Math.max(0, p.lastIndexOf('/')))
@@ -269,6 +271,7 @@ async function publish($: EngineInterface, isEnded = false) {
     compactError,
     limitsAt,
     question: pendingQuestion,
+    transcript: transcriptPath || null,
     spend:
       s && u?.usd !== undefined
         ? {
@@ -284,7 +287,7 @@ async function publish($: EngineInterface, isEnded = false) {
           ...(u.contextPercent !== undefined
             ? [
                 {
-                  label: '컨텍스트',
+                  label: t('limit.context'),
                   short: 'ctx',
                   pct: Math.round(u.contextPercent),
                   resetsAt: null,
@@ -294,7 +297,7 @@ async function publish($: EngineInterface, isEnded = false) {
               ]
             : []),
           ...u.limits.map(l => ({
-            label: LIMIT_LABEL[l.kind] ?? l.kind,
+            label: limitLabel(l.kind),
             short: LIMIT_SHORT[l.kind] ?? l.kind,
             pct: Math.round(l.percentUsed),
             resetsAt: l.resetsAt ?? null,
@@ -309,12 +312,12 @@ async function publish($: EngineInterface, isEnded = false) {
       edited: w.touches.filter(t => t.kind === 'edit' || t.kind === 'write').length,
       actions: w.touches.reduce((n, t) => n + t.count, 0),
       current: current
-        ? { glyph: KIND_GLYPH[current.kind], label: current.label, action: KIND_LABEL[current.kind] }
+        ? { glyph: KIND_GLYPH[current.kind], kind: current.kind, label: current.label, action: kindLabel(current.kind) }
         : null,
       recent: w.touches
         .filter(t => t !== current)
         .slice(-RECENT)
-        .map(t => ({ glyph: KIND_GLYPH[t.kind], label: t.label, count: t.count, hasFailed: t.hasFailed })),
+        .map(t => ({ glyph: KIND_GLYPH[t.kind], kind: t.kind, label: t.label, count: t.count, hasFailed: t.hasFailed })),
     },
   }
   await $.fs.write(liveFile, JSON.stringify(snapshot))
@@ -346,7 +349,7 @@ async function failCompact($: EngineInterface, message: string) {
   compactWatch = undefined
   compactState = 'idle'
   compactError = { message, at: await $.clock.now() }
-  $.ui.toast(`컨텍스트를 압축하지 못했어요: ${message}`)
+  $.ui.toast(t('compact.failed', { message }))
   if (liveFile) {
     const log = `${parent(parent(liveFile))}/compact-error.log`
     await $.fs.write(log, `${new Date().toISOString()} ${slash(cwd)}\n${message}\n`).catch(() => undefined)
@@ -382,7 +385,7 @@ async function submitCompact($: EngineInterface) {
   // If the command never turns into a compaction, say so rather than wait forever.
   compactWatch?.cancel()
   compactWatch = $.clock.after(120_000, () => {
-    if (compactState === 'submitted') void failCompact($, '/compact 명령이 압축으로 이어지지 않았어요').catch(() => undefined)
+    if (compactState === 'submitted') void failCompact($, t('compact.notStarted')).catch(() => undefined)
   })
   try {
     await $.command.run({ command: 'compact' })
@@ -396,7 +399,7 @@ async function submitCompact($: EngineInterface) {
     compactWatch = undefined
     compactState = 'idle'
     await publish($)
-    $.ui.toast('위젯 요청으로 /compact를 실행했어요.')
+    $.ui.toast(t('compact.commandRan'))
   }
 }
 
@@ -601,15 +604,74 @@ async function launchWidget($: EngineInterface) {
   if (!widgetApp) return
   const isFirst = !(await $.fs.exists(`${liveDir}/runtime/node_modules/electron/package.json`)) &&
     !(await $.fs.exists(`${widgetApp}/node_modules/electron/package.json`))
-  if (isFirst) $.ui.toast('Orbit 위젯을 처음 준비하고 있어요. Electron을 내려받느라 1분쯤 걸릴 수 있어요.')
+  if (isFirst) $.ui.toast(t('widget.firstSetup'))
   let result: { exitCode: number; stderr: string }
   try {
     result = await $.process.run(['node', `${widgetApp}/launch.js`], { timeoutMs: 600_000 })
   } catch {
-    $.ui.toast('Orbit 위젯을 띄우지 못했어요. Node.js가 설치되어 있는지 확인해 주세요.')
+    $.ui.toast(t('widget.noNode'))
     return
   }
-  if (result.exitCode !== 0) $.ui.toast(`Orbit 위젯을 띄우지 못했어요: ${result.stderr.trim().slice(-200)}`)
+  if (result.exitCode !== 0) $.ui.toast(t('widget.launchFailed', { error: result.stderr.trim().slice(-200) }))
+}
+
+// The language: the widget's choice in widget.json when it names one, else the
+// runtime's locale, else the locale variables. Read at most every ten seconds unless
+// forced; answers whether the language changed.
+let prefFile = ''
+let langCheckedAt = 0
+let hasCheckedLang = false
+
+async function envLang($: EngineInterface): Promise<Lang> {
+  const fromIntl = langFromTag(intlLocale())
+  if (fromIntl) return fromIntl
+  // An empty variable does not count, as in POSIX.
+  return (
+    langFromTag(await $.env.get('LC_ALL')) ??
+    langFromTag(await $.env.get('LC_MESSAGES')) ??
+    langFromTag(await $.env.get('LANG')) ??
+    'en'
+  )
+}
+
+async function refreshLang($: EngineInterface, force = false): Promise<boolean> {
+  const now = await $.clock.now()
+  if (!force && hasCheckedLang && now - langCheckedAt < 10_000) return false
+  hasCheckedLang = true
+  langCheckedAt = now
+  let chosen: Lang | null = null
+  try {
+    if (prefFile && (await $.fs.exists(prefFile))) chosen = langFromPref(String(await $.fs.read(prefFile)))
+  } catch {
+    chosen = null
+  }
+  return setLang(chosen ?? (await envLang($)))
+}
+
+const LANG_NAMES: Record<Lang, string> = { en: 'English', ko: '한국어', ja: '日本語' }
+
+// /hud lang <auto|en|ko|ja>: the widget takes the choice through its command file and
+// keeps it in widget.json; that file is written here too, so a widget not running
+// starts in it. With no choice, says which language is on and how to change it.
+async function chooseLang($: EngineInterface, choice: string): Promise<string> {
+  let pref: Record<string, unknown> = {}
+  try {
+    if (prefFile && (await $.fs.exists(prefFile))) pref = JSON.parse(String(await $.fs.read(prefFile)))
+  } catch {
+    pref = {}
+  }
+  if (choice !== 'auto' && choice !== 'en' && choice !== 'ko' && choice !== 'ja') {
+    const name = LANG_NAMES[currentLang()]
+    return t('hud.langNow', { name: pref.lang === 'en' || pref.lang === 'ko' || pref.lang === 'ja' ? name : t('hud.langAuto', { name }) })
+  }
+  const lang = choice === 'auto' ? langFromTag(String(pref.langResolved ?? '')) ?? (await envLang($)) : choice
+  if (prefFile) await $.fs.write(prefFile, JSON.stringify({ ...pref, lang: choice, langResolved: lang }))
+  if (widgetCommandFile) await $.fs.write(widgetCommandFile, `lang:${choice}`)
+  setLang(lang)
+  langCheckedAt = await $.clock.now()
+  $.ui.invalidate('ui.render')
+  schedulePublish($)
+  return t('hud.langSet', { name: choice === 'auto' ? t('hud.langAuto', { name: LANG_NAMES[lang] }) : LANG_NAMES[lang] })
 }
 
 // The home folder, on Windows and elsewhere.
@@ -635,12 +697,23 @@ export const register: Register = on => {
     watchFile = `${live}/chat/${id}.watch`
     promptFile = `${live}/prompts/${id}.json`
     widgetApp = `${root}/app`
+    // The widget's language choice lives beside its window position; read it before
+    // anything is said, then again now and then so a change there reaches here.
+    prefFile = `${live}/widget.json`
+    await refreshLang($, true).catch(() => false)
     poller?.cancel()
     let ticks = 0
     poller = $.clock.every(1000, () => {
       void checkCommands($).catch(() => undefined)
       void checkPrompt($).catch(() => undefined)
       void checkChat($).catch(() => undefined)
+      void refreshLang($)
+        .then(changed => {
+          if (!changed) return
+          $.ui.invalidate('ui.render')
+          schedulePublish($)
+        })
+        .catch(() => undefined)
       ticks += 1
       // The cost ledger moves mid-turn too; read it every few seconds while working.
       if (ticks % 5 === 0) {
@@ -659,11 +732,25 @@ export const register: Register = on => {
     })
     await $.command.register({
       name: 'hud',
-      description: 'Orbit 위젯 켜고 끄기 (/hud on, /hud off · 단축키 Ctrl+Alt+O), 인자 없으면 작업 현황 패널',
+      description: t('hud.description'),
     })
     await refreshUsage($)
     await publish($)
     void launchWidget($).catch(() => undefined)
+    return next(e)
+  })
+
+  // Only the classic hooks' input names the transcript file; a /clear starts another.
+  on('classic.SessionStart', async ($, e, next) => {
+    transcriptPath = slash(e.transcript_path)
+    return next(e)
+  })
+
+  on('classic.Stop', async ($, e, next) => {
+    if (transcriptPath !== slash(e.transcript_path)) {
+      transcriptPath = slash(e.transcript_path)
+      schedulePublish($)
+    }
     return next(e)
   })
 
@@ -673,19 +760,21 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'hud' }, async ($, e) => {
+    await refreshLang($).catch(() => false)
     const arg = e.args.trim()
     if (arg === 'on' || arg === 'widget') {
       // Starts it if it is not running (it keeps to one instance), and brings it back if hidden.
       await $.fs.write(widgetCommandFile, 'show')
       await launchWidget($)
-      return { text: 'Orbit 위젯을 켰어요. (Ctrl+Alt+O로 숨기기)' }
+      return { text: t('hud.shown') }
     }
     if (arg === 'off') {
       await $.fs.write(widgetCommandFile, 'hide')
-      return { text: 'Orbit 위젯을 숨겼어요. /hud on 이나 Ctrl+Alt+O로 다시 켤 수 있어요.' }
+      return { text: t('hud.hidden') }
     }
-    await $.ui.open({ id: PANE, title: '작업 현황' })
-    return { text: '작업 현황 패널을 열었어요.' }
+    if (arg === 'lang' || arg.startsWith('lang ')) return { text: await chooseLang($, arg.slice(4).trim().toLowerCase()) }
+    await $.ui.open({ id: PANE, title: t('pane.title') })
+    return { text: t('hud.paneOpened') }
   })
 
   on('session.measure', async ($, e, next) => {
@@ -768,7 +857,7 @@ export const register: Register = on => {
     } finally {
       if (isOurs) {
         compactState = 'idle'
-        $.ui.toast('위젯 요청으로 컨텍스트를 압축했어요.')
+        $.ui.toast(t('compact.done'))
       }
       await refreshUsage($).catch(() => undefined)
       await publish($)
@@ -798,7 +887,7 @@ export const register: Register = on => {
     try {
       const first = await Promise.race([fromApp, fromWidget])
       if (first.via === 'widget' && first.answers) {
-        $.ui.toast('위젯에서 질문에 답했어요.')
+        $.ui.toast(t('question.answeredInWidget'))
         return { result: { questions: raw, answers: first.answers } } as never
       }
       return (await fromApp).r
@@ -841,19 +930,19 @@ export const register: Register = on => {
           <Text>
             {w.isActive ? (
               <Text color={ACCENT} bold>
-                ● 작업 중
+                {t('pane.working')}
               </Text>
             ) : (
               <Text color="green" bold>
-                ✓ 완료
+                {t('pane.done')}
               </Text>
             )}
             <Text dimColor>
               {'  '}
-              {elapsed} · 파일 {files}개 · 동작 {w.touches.reduce((n, t) => n + t.count, 0)}회
+              {t('pane.stats', { elapsed, files, actions: w.touches.reduce((n, x) => n + x.count, 0) })}
             </Text>
           </Text>
-          <Button key="close" label="닫기" role="dismiss" onPress={() => $.ui.close({ id: PANE })} />
+          <Button key="close" label={t('pane.close')} role="dismiss" onPress={() => $.ui.close({ id: PANE })} />
         </Box>
         {scan}
         <Text>
@@ -861,28 +950,28 @@ export const register: Register = on => {
             <Text>
               <Text color={ACCENT}>▶ </Text>
               <Text bold>{current.label}</Text>
-              <Text dimColor> {KIND_LABEL[current.kind]} 중…</Text>
+              <Text dimColor> {t('pane.doing', { action: kindLabel(current.kind) })}</Text>
             </Text>
           ) : (
-            <Text dimColor>{w.isActive ? '생각하는 중…' : '대기 중'}</Text>
+            <Text dimColor>{w.isActive ? t('pane.thinking') : t('pane.idle')}</Text>
           )}
         </Text>
         <Box flexDirection="column" marginTop={1}>
-          {shown.length === 0 && <Text dimColor>아직 손댄 파일이 없어요.</Text>}
-          {shown.map(t => (
-            <Box key={t.key} gap={1}>
-              <Text color={t.running > 0 ? ACCENT : t.hasFailed ? DANGER : undefined} dimColor={t.running === 0 && !t.hasFailed}>
-                {KIND_GLYPH[t.kind]} {KIND_LABEL[t.kind]}
+          {shown.length === 0 && <Text dimColor>{t('pane.empty')}</Text>}
+          {shown.map(x => (
+            <Box key={x.key} gap={1}>
+              <Text color={x.running > 0 ? ACCENT : x.hasFailed ? DANGER : undefined} dimColor={x.running === 0 && !x.hasFailed}>
+                {KIND_GLYPH[x.kind]} {kindLabel(x.kind)}
               </Text>
-              <Text bold={t.running > 0} wrap="truncate-end">
-                {t.label}
+              <Text bold={x.running > 0} wrap="truncate-end">
+                {x.label}
               </Text>
-              {t.detail ? (
+              {x.detail ? (
                 <Text dimColor wrap="truncate-start">
-                  {t.detail}
+                  {x.detail}
                 </Text>
               ) : null}
-              {t.count > 1 ? <Text dimColor>×{t.count}</Text> : null}
+              {x.count > 1 ? <Text dimColor>×{x.count}</Text> : null}
             </Box>
           ))}
         </Box>

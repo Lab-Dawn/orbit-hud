@@ -165,13 +165,31 @@ html, body {
 .usage-row .pct { font-family: var(--mono); font-weight: 600; }
 .usage-row .note { color: var(--faint); font: 12px var(--mono); }
 .rule { height: 1px; margin: 8px 4px; background: rgba(125, 138, 153, 0.3); }
-.list-label { margin: 0 6px 4px; font-size: 12px; color: var(--muted); }
+.list-head { display: flex; align-items: center; margin: 0 2px 4px 6px; }
+.list-label { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.settings { display: flex; padding: 3px 4px; margin-left: 6px; cursor: pointer; border: 1px solid transparent; border-radius: 2px; }
+.settings:hover { border-color: var(--accent-line); background: var(--accent-wash); }
 
 .s-row { display: flex; align-items: center; padding: 6px 4px 6px 6px; border-radius: 2px; cursor: pointer; }
 .s-row:hover { background: var(--hover); }
 .s-row.is-chat { background: var(--accent-wash); }
 .s-row .mini { width: 24px; height: 24px; margin: 2px 10px 0 0; align-self: flex-start; }
 .s-row .text { flex: 1; min-width: 0; }
+.cache-tip {
+  position: absolute; z-index: 5; width: 250px; padding: 8px 10px 9px;
+  background: var(--surface); border: 2px solid var(--edge); pointer-events: none;
+  font-size: 12px; line-height: 1.45; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+/* Korean breaks between words; Japanese, which has no spaces, anywhere. */
+:lang(ko) .cache-tip { word-break: keep-all; }
+.cache-tip .head { font-weight: 600; font-size: 12.5px; }
+.cache-tip .say { margin-top: 3px; }
+.cache-tip .stats { margin-top: 4px; font-size: 11.5px; }
+.cache-tip .key { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--edge); font-size: 11px; color: var(--faint); display: flex; align-items: center; }
+.cache-tip .key span { margin-right: 10px; }
+.cache-tip .sw { width: 8px; height: 8px; margin-right: 4px; display: inline-block; }
+.cache-tip .sw--amber { background: #FFB13B; }
+.cache-tip .sw--gray { background: #6B7580; }
 .s-row .title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .s-row .doing { margin-top: 2px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 .s-row .doing .mono { font-family: var(--mono); }
@@ -217,8 +235,7 @@ html, body {
 .chat__close { cursor: pointer; padding: 0 4px 0 8px; }
 .chat__close:hover { opacity: 0.6; }
 .chat__well { border: 2px solid var(--edge); background: var(--well); }
-.chat__lines { height: 270px; overflow-y: auto; padding: 6px 10px; scrollbar-width: none; }
-.chat__lines::-webkit-scrollbar { display: none; }
+.chat__lines { height: 270px; overflow-y: auto; padding: 6px 6px 6px 10px; scrollbar-width: thin; scrollbar-color: rgba(125, 138, 153, 0.45) transparent; }
 .msg-user {
   margin: 5px 0 5px 40px;
   margin-left: auto;
@@ -244,7 +261,25 @@ html, body {
 .loader i:nth-child(3) { animation-delay: 0.28s; margin-right: 4px; }
 @keyframes blink { from { opacity: 0.2; } to { opacity: 1; } }
 .chat__input { display: flex; align-items: flex-end; gap: 6px; margin-top: 8px; }
-.chat__field { flex: 1; }
+.chat__field { flex: 1; min-width: 0; }
+.chat__attach {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--edge);
+  background: var(--field);
+  cursor: pointer;
+  padding: 0;
+}
+.chat__attach:hover { border-color: var(--accent-line); background: var(--accent-wash); }
+.chat__files { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.file-chip { display: flex; align-items: center; gap: 6px; max-width: 100%; padding: 1px 4px 1px 7px; border: 1px solid var(--accent-line); background: var(--accent-wash); font-size: 11.5px; color: var(--sub); }
+.file-chip .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-chip .x { cursor: pointer; color: var(--muted); padding: 0 3px; }
+.file-chip .x:hover { color: var(--text); }
+#chat.is-drop .chat__well { border-color: var(--accent); }
 .chat__field textarea {
   display: block;
   width: 100%;

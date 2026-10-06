@@ -11,7 +11,7 @@ function showGlance(list) {
   body.replaceChildren()
   const inner = 358
   const small = { size: 'small' }
-  if (S.account.length === 0) body.append(P.pixelText(['사용량 기다리는 중', 'Muted'], small))
+  if (S.account.length === 0) body.append(P.pixelText([tr('usage.waiting'), 'Muted'], small))
   for (const m of S.account) {
     const row = el('div', 'row')
     const left = el('div', 'grow')
@@ -23,9 +23,9 @@ function showGlance(list) {
   }
   body.append(el('div', 'pixel-rule'))
   const active = list.filter(s => s.state !== 'idle')
-  if (active.length === 0) body.append(P.pixelText([`세션 ${list.length}개 · 모두 대기 중`, 'Faint'], small))
+  if (active.length === 0) body.append(P.pixelText([tr('glance.allIdle', { n: list.length }), 'Faint'], small))
   for (const s of active) {
-    const when = s.state === 'working' ? [formatClock(s.elapsed), 'Sub'] : s.state === 'ask' ? ['질문', 'Ask'] : ['완료', 'Done']
+    const when = s.state === 'working' ? [formatClock(s.elapsed), 'Sub'] : s.state === 'ask' ? [tr('state.ask'), 'Ask'] : [tr('state.done'), 'Done']
     const right = P.pixelText(when, small)
     right.style.marginLeft = '8px'
     const row = el('div', 'row')
@@ -54,14 +54,14 @@ function watchEvents(list) {
     const prev = prevStates.get(s.id)
     if (prev === 'working' && (s.state === 'done' || s.state === 'idle')) {
       const w = s.data.work
-      const what = w.edited > 0 ? `파일 ${w.edited}개 수정` : `동작 ${w.actions}회`
-      pushNotice('Done', `✓ ${s.title}`, `끝났어요 · ${formatClock(w.endedAt - w.startedAt)} · ${what}`, s.id, 'open', 6)
+      const what = w.edited > 0 ? tr('work.edited', { n: w.edited }) : tr('work.actions', { n: w.actions })
+      pushNotice('Done', `✓ ${s.title}`, tr('notice.doneBody', { time: formatClock(w.endedAt - w.startedAt), what }), s.id, 'open', 6)
     }
     prevStates.set(s.id, s.state)
     const key = `ctx|${s.id}`
     if (s.ctx != null && s.ctx >= 85 && !warned.has(key)) {
       warned.add(key)
-      pushNotice('Danger', `컨텍스트 ${s.ctx}% · ${s.title}`, '곧 자동 압축돼요. 눌러서 세션 열기', s.id, 'focus', 8)
+      pushNotice('Danger', tr('notice.ctxHead', { pct: s.ctx, title: s.title }), tr('notice.ctxBody'), s.id, 'focus', 8)
     } else if (s.ctx != null && s.ctx < 80) warned.delete(key)
   }
   const five = S.account.find(m => m.short === '5h')
@@ -69,7 +69,7 @@ function watchEvents(list) {
     const key = `5h|${five.resetsAt}`
     if (five.pct >= 85 && !warned.has(key)) {
       warned.add(key)
-      pushNotice('Danger', `5시간 사용량 ${five.pct}%`, `${formatReset(five.resetsAt)} · 눌러서 많이 쓴 세션 보기`, null, 'panel', 8)
+      pushNotice('Danger', tr('notice.fiveHead', { pct: five.pct }), tr('notice.fiveBody', { reset: formatReset(five.resetsAt) }), null, 'panel', 8)
     }
   }
 }
@@ -89,9 +89,11 @@ function updateNotice() {
   body.replaceChildren()
   const head = el('div', 'row')
   const title = el('div', 'grow')
-  title.append(P.pixelText([n.head, n.color], { maxWidth: 480 }))
+  // The glance's smaller lettering: a notice is read at a look too.
+  const small = { size: 'small' }
+  title.append(P.pixelText([n.head, n.color], { ...small, maxWidth: 480 }))
   const close = el('span', 'close-mark')
-  close.title = '닫기'
+  close.title = tr('close')
   close.append(P.icon('close', 'Muted'))
   close.addEventListener('click', e => {
     e.stopPropagation()
@@ -99,7 +101,7 @@ function updateNotice() {
   })
   head.append(title, close)
   body.append(head)
-  const text = P.pixelText([n.body, 'Sub'], { maxWidth: 520, wrap: true })
+  const text = P.pixelText([n.body, 'Sub'], { ...small, maxWidth: 520, wrap: true })
   text.style.marginTop = '2px'
   body.append(text)
   const edge = { Done: 'rgba(74,222,128,0.8)', Danger: 'rgba(255,92,108,0.8)' }[n.color] || 'rgba(92,225,245,0.6)'
@@ -197,10 +199,10 @@ function buildQuestion(s, key) {
   const head = el('div', 'q-head')
   const mini = P.pixelCanvas(P.MINI, P.MINI, 2)
   const headText = el('div', 'grow')
-  headText.append(P.pixelText([['질문', 'Ask'], [' · ', 'Faint'], [s.title, 'Sub']], { maxWidth: QUESTION_INNER - 70 }))
+  headText.append(P.pixelText([[tr('q.title'), 'Ask'], [' · ', 'Faint'], [s.title, 'Sub']], { maxWidth: QUESTION_INNER - 70 }))
   const headRight = el('div', 'row')
   const jump = el('span', 'q-link')
-  jump.title = '앱에서 이 세션 열기'
+  jump.title = tr('q.openInApp')
   jump.append(P.icon('jump', 'Muted'))
   jump.addEventListener('click', e => {
     e.stopPropagation()
@@ -212,16 +214,16 @@ function buildQuestion(s, key) {
     const item = { question: String(qq.question), isMulti: !!qq.multiSelect, isChoice: true, options: [], selected: new Set(), field: null, fieldWrap: null, list: null, tag: null }
     if (qq.header) {
       item.tag = el('div', 'q-tag')
-      item.tag.append(P.pixelText([[String(qq.header), 'Ask'], [qq.multiSelect ? ' · 여러 개' : '', 'Muted']], { maxWidth: QUESTION_INNER - 20 }))
+      item.tag.append(P.pixelText([[String(qq.header), 'Ask'], [qq.multiSelect ? tr('q.multi') : '', 'Muted']], { maxWidth: QUESTION_INNER - 20 }))
     }
     item.text = P.pixelText([item.question, 'Text'], { maxWidth: QUESTION_INNER, wrap: true })
     item.text.classList.add('q-text')
     if (!item.tag) item.text.classList.add('is-first')
     const kind = qq.kind || 'choice'
-    let hint = '직접 입력'
+    let hint = tr('q.typeOwn')
     if (kind === 'text' || kind === 'number') {
       item.isChoice = false
-      hint = qq.placeholder ? String(qq.placeholder) : kind === 'number' ? `${qq.min ?? ''} ~ ${qq.max ?? ''} ${qq.unit ?? ''}`.trim() : '답을 입력하세요'
+      hint = qq.placeholder ? String(qq.placeholder) : kind === 'number' ? `${qq.min ?? ''} ~ ${qq.max ?? ''} ${qq.unit ?? ''}`.trim() : tr('q.typeAnswer')
     } else {
       item.list = el('div')
       ;(qq.options || []).forEach((o, oi) => {
@@ -258,7 +260,7 @@ function updateQuestionHead() {
   if (q.others > 0) {
     const more = P.pixelText([`+${q.others}`, 'Ask'])
     more.style.marginRight = '10px'
-    more.title = `다른 세션의 질문 ${q.others}개가 기다리고 있어요`
+    more.title = tr('q.others', { n: q.others })
     q.headRight.append(more)
   }
   if (q.items.length > 1 && !q.isSent) {
@@ -281,9 +283,9 @@ function showQuestionPage() {
   updateQuestionHead()
   if (q.isSent) {
     P.drawMiniState(q.mini.getContext('2d'), 'done', 0)
-    const done = P.pixelText(['✓ 답을 보냈어요', 'Done'])
+    const done = P.pixelText([tr('q.sent'), 'Done'])
     done.style.marginTop = '10px'
-    body.append(done, P.pixelText(['세션이 이어서 작업해요', 'Muted']))
+    body.append(done, P.pixelText([tr('q.continues'), 'Muted']))
     cards.question.style.setProperty('--frame-edge', 'rgba(74,222,128,0.8)')
     return
   }
@@ -294,18 +296,18 @@ function showQuestionPage() {
   body.append(item.fieldWrap, q.errorBox)
   const foot = el('div', 'q-foot')
   const isLast = q.page === q.items.length - 1
-  if (q.isOneTap) foot.append(P.pixelText(['고르면 바로 답해요', 'Faint']))
+  if (q.isOneTap) foot.append(P.pixelText([tr('q.oneTap'), 'Faint']))
   else {
     const back = el('span', 'q-back')
     if (q.page > 0) {
-      back.append(P.pixelText(['← 이전', 'Muted']))
+      back.append(P.pixelText([tr('q.back'), 'Muted']))
       back.addEventListener('click', e => {
         e.stopPropagation()
         questionAction('back')
       })
     }
     const go = el('div', 'q-button')
-    go.append(P.pixelText([isLast ? '답하기' : '다음 →', 'Text']))
+    go.append(P.pixelText([isLast ? tr('q.answer') : tr('q.next'), 'Text']))
     go.addEventListener('click', e => {
       e.stopPropagation()
       questionAction('next')
@@ -383,7 +385,7 @@ function questionAction(action) {
     return
   }
   if (!isAnswered(q.items[q.page])) {
-    setQuestionError('고르거나 입력해 주세요')
+    setQuestionError(tr('q.required'))
     return
   }
   if (q.page < q.items.length - 1) {
@@ -409,7 +411,7 @@ function submitAnswer() {
     else {
       q.page = i
       showQuestionPage()
-      setQuestionError('고르거나 입력해 주세요')
+      setQuestionError(tr('q.required'))
       return
     }
   }

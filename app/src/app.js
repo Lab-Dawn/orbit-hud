@@ -6,10 +6,13 @@
 'use strict'
 
 const P = window.Pixel
+// The widget's words in the chosen language (app/i18n.js).
+const tr = (key, vars) => window.I18N.t(key, vars)
 // `hud` is the bridge preload.js puts on the window.
 const $ = id => document.getElementById(id)
 
 const ALIVE_MS = 120000 // the plugin rewrites its file at least every 30 s
+const RECENT_MS = 60 * 60 * 1000 // the list keeps sessions active within the hour
 const LINGER_MS = 12000 // a finished session shows as done this long
 const CARD_GAP = 12
 const PANEL_GAP = 10
@@ -71,12 +74,12 @@ function formatReset(iso) {
   const left = Date.parse(iso) - Date.now()
   if (!(left > 0)) return ''
   const minutes = left / 60000
-  if (minutes < 60) return `${Math.ceil(minutes)}분 후 리셋`
+  if (minutes < 60) return tr('reset.min', { n: Math.ceil(minutes) })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}:${String(Math.floor(minutes % 60)).padStart(2, '0')} 후 리셋`
+  if (hours < 24) return tr('reset.hm', { h: hours, mm: String(Math.floor(minutes % 60)).padStart(2, '0') })
   const days = Math.floor(hours / 24)
   const rest = hours % 24
-  return rest === 0 ? `${days}일 후 리셋` : `${days}일 ${rest}시간 후 리셋`
+  return rest === 0 ? tr('reset.d', { d: days }) : tr('reset.dh', { d: days, h: rest })
 }
 
 function formatTokens(n) {
@@ -93,6 +96,34 @@ function formatShare(pct, isPartial) {
   return `${mark}${Math.round(pct)}%`
 }
 
+// The prompt cache as it stands: in use while the session works; else warm until the
+// time to live runs out from the last request, low in its last fifth, then cold.
+const TTL_MS = { '5m': 5 * 60 * 1000, '1h': 60 * 60 * 1000 }
+
+function cacheState(s) {
+  const c = s.cache
+  if (!c || !c.isObserved) return null
+  const ttl = c.ttl || '5m'
+  const span = TTL_MS[ttl]
+  const left = c.requestAt + span - Date.now()
+  let state = 'cold'
+  if (s.state === 'working') state = 'live'
+  else if (left > span * 0.2) state = 'warm'
+  else if (left > 0) state = 'low'
+  return { ...c, ttl, left, state }
+}
+
+function formatLeft(ms) {
+  const sec = Math.max(0, Math.ceil(ms / 1000))
+  if (sec < 60) return tr('left.sec', { n: sec })
+  return tr('left.min', { n: Math.ceil(sec / 60) })
+}
+
+function formatAgo(ms) {
+  const min = Math.floor(Math.max(0, ms) / 60000)
+  return min < 1 ? tr('ago.now') : tr('ago.min', { n: min })
+}
+
 const toTime = iso => (iso ? Date.parse(iso) : NaN)
 const sameWindow = (a, b) => Number.isFinite(toTime(a)) && Number.isFinite(toTime(b)) && Math.abs(toTime(a) - toTime(b)) < 60000
 
@@ -104,12 +135,21 @@ async function readSessions() {
   const raw = await hud.readSessions()
   const list = []
   const spends = []
-  for (const { id, age, stamp, data: d } of raw) {
+  const now = Date.now()
+  for (const { id, age, stamp, data: d, cache, activeAt } of raw) {
     if (d.spend && d.spend.windowUsd != null) {
       spends.push({ id, resetsAt: d.spend.resetsAt, usd: Number(d.spend.windowUsd), isPartial: !!d.spend.isPartial })
     }
     if (d.isEnded || age > ALIVE_MS) continue
-    list.push(await sessionView(id, d, age, stamp))
+    const view = await sessionView(id, d, age, stamp)
+    // Listed while it works or asks, or when it was active within the hour; a session
+    // with nothing done yet (no transcript, no turn) is new, so listed too.
+    const w = d.work || {}
+    const lastAt = Math.max(activeAt || 0, w.endedAt || 0, w.startedAt || 0)
+    if (view.state === 'idle' && lastAt > 0 && now - lastAt > RECENT_MS) continue
+    view.lastAt = lastAt
+    view.cache = cache
+    list.push(view)
   }
   S.windowSpends = spends
   return list
@@ -133,8 +173,14 @@ async function sessionView(id, d, ageMs, stamp) {
   try {
     app = await hud.appSession(id)
   } catch {}
-  const title = app.title || d.project || id.slice(0, 8)
-  return { id, data: d, state, elapsed, ctx, stamp, startedAt: w ? w.startedAt : 0, title, appId: app.appId, windowUsd: null, windowPct: null, isPartial: false }
+  const title = app.title || d.title || d.project || id.slice(0, 8)
+  return { id, data: d, isLite: !!d.isLite, state, elapsed, ctx, stamp, startedAt: w ? w.startedAt : 0, title, appId: app.appId, windowUsd: null, windowPct: null, isPartial: false }
+}
+
+// A limit's name in the widget's language; one it has no word for keeps the plugin's.
+function usageLabel(m) {
+  const word = tr(`usage.${m.short}`)
+  return word === `usage.${m.short}` ? m.label : word
 }
 
 // Per limit: the reading of the newest window, and within one window the one a
@@ -163,8 +209,9 @@ function accountUsage(list) {
   return [...best.values()].map(({ m }) => {
     const resets = toTime(m.resetsAt)
     // A window that has ended with no newer reading has no usage yet.
-    if (Number.isFinite(resets) && resets < now) return { label: m.label, short: m.short, pct: 0, resetsAt: null, isStale: true }
-    return { label: m.label, short: m.short, pct: m.pct, resetsAt: m.resetsAt, isStale: false }
+    const label = usageLabel(m)
+    if (Number.isFinite(resets) && resets < now) return { label, short: m.short, pct: 0, resetsAt: null, isStale: true }
+    return { label, short: m.short, pct: m.pct, resetsAt: m.resetsAt, isStale: false }
   })
 }
 
@@ -436,6 +483,12 @@ core.addEventListener('pointerleave', () => {
 })
 core.addEventListener('contextmenu', e => {
   e.preventDefault()
+  hud.menu(S.scale)
+})
+// The same menu from the panel, where it can be found: language, size, position.
+$('settings').append(P.icon('gear', 'Muted'))
+$('settings').addEventListener('click', e => {
+  e.stopPropagation()
   hud.menu(S.scale)
 })
 

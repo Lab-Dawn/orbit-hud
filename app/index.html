@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
@@ -13,7 +13,10 @@
       <div class="frame__in">
         <div id="usage"></div>
         <div class="rule"></div>
-        <div id="list-label" class="list-label"></div>
+        <div class="list-head">
+          <div id="list-label" class="list-label"></div>
+          <span id="settings" class="settings" data-i18n-title="panel.settings"></span>
+        </div>
         <div id="sessions"></div>
       </div>
     </div></div>
@@ -24,14 +27,17 @@
         <div class="chat__head">
           <canvas id="chat-mini" class="px"></canvas>
           <span id="chat-title" class="chat__title"></span>
-          <span id="chat-close" class="chat__close" title="닫기 (Esc)"></span>
+          <span id="chat-close" class="chat__close" data-i18n-title="chat.close"></span>
         </div>
         <div class="chat__well"><div id="chat-lines" class="chat__lines"></div></div>
+        <div id="chat-files" class="chat__files" hidden></div>
         <div class="chat__input">
+          <button id="chat-attach" class="chat__attach" data-i18n-title="chat.attach"></button>
+          <input id="chat-file" type="file" multiple hidden />
           <div class="chat__field">
-            <textarea id="chat-text" rows="1" placeholder="메시지 보내기" spellcheck="false"></textarea>
+            <textarea id="chat-text" rows="1" data-i18n-placeholder="chat.placeholder" spellcheck="false"></textarea>
           </div>
-          <button id="chat-send" class="chat__send" title="보내기 (Enter)"></button>
+          <button id="chat-send" class="chat__send" data-i18n-title="chat.send"></button>
         </div>
         <div id="chat-status" class="chat__status" hidden></div>
       </div>
@@ -47,6 +53,7 @@
   </div>
   <script src="fonts/galmuri14.js"></script>
   <script src="fonts/galmuri11.js"></script>
+  <script src="i18n.js"></script>
   <script src="src/pixel.js"></script>
   <script src="src/app.js"></script>
   <script src="src/cards.js"></script>

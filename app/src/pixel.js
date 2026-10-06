@@ -17,6 +17,8 @@ const COLORS = {
 const PALETTES = {
   cyan: ['#F2FFFF', '#B8F6FF', '#5CE1F5', '#22B8D6', '#137A93', '#0B4656'],
   violet: ['#F6F0FF', '#D9CCFF', '#B49BFF', '#8B6CF0', '#5B44A8', '#33265F'],
+  amber: ['#FFF8E8', '#FFE0A3', '#FFB13B', '#E08A12', '#9A5A08', '#5C3504'],
+  gray: ['#C9D1D9', '#9AA4AE', '#6B7580', '#4A535C', '#2E353D', '#20262D'],
   green: ['#EFFFF4', '#A8F5C3', '#4ADE80', '#22A55A', '#137A3F', '#0B4626'],
 }
 const RING = {
@@ -185,11 +187,13 @@ function drawMini(ctx, hue, shift, lit) {
 }
 
 // state: idle | done | working | ask; frame turns the lamp.
-function drawMiniState(ctx, state, frame) {
-  if (state === 'working') drawMini(ctx, 'cyan', frame % 2, frame % 8)
-  else if (state === 'ask') drawMini(ctx, 'violet', frame % 2, frame % 8)
-  else if (state === 'done') drawMini(ctx, 'green', 0, -1)
-  else drawMini(ctx, 'cyan', 3, -1)
+// cache: a prompt cache about to go cold turns the core amber, a cold one greys it.
+function drawMiniState(ctx, state, frame, cache) {
+  const isMoving = state === 'working' || state === 'ask'
+  const hue = cache === 'cold' ? 'gray' : cache === 'low' ? 'amber' : state === 'ask' ? 'violet' : state === 'done' ? 'green' : 'cyan'
+  if (isMoving) drawMini(ctx, hue, frame % 2, frame % 8)
+  else if (state === 'done' && !cache) drawMini(ctx, hue, 0, -1)
+  else drawMini(ctx, hue, cache === 'low' || state === 'done' ? 0 : 3, -1)
 }
 
 // ---------- context gauge: ten cells ----------
@@ -244,11 +248,25 @@ function drawArrow(ctx) {
 // Small hand-drawn marks, 7x7: close and jump (the font has neither in pixel form).
 const ICONS = {
   close: ['#.....#', '.#...#.', '..#.#..', '...#...', '..#.#..', '.#...#.', '#.....#'],
+  gear: [
+    '....###....',
+    '.##.###.##.',
+    '.#########.',
+    '..##...##..',
+    '###.....###',
+    '###.....###',
+    '###.....###',
+    '..##...##..',
+    '.#########.',
+    '.##.###.##.',
+    '....###....',
+  ],
+  clip: ['..###..', '.#...#.', '.#.#.#.', '.#.#.#.', '.#.#.#.', '.#.#...', '..#....'],
   jump: ['..#####', '.....##', '....#.#', '...#..#', '..#....', '.#.....', '#......'],
 }
 function icon(name, color, k = 2) {
   const art = ICONS[name]
-  const c = pixelCanvas(7, 7, k)
+  const c = pixelCanvas(art[0].length, art.length, k)
   const ctx = c.getContext('2d')
   ctx.fillStyle = COLORS[color] || color
   art.forEach((row, y) => [...row].forEach((ch, x) => ch === '#' && ctx.fillRect(x, y, 1, 1)))
