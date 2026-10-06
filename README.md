@@ -1,107 +1,115 @@
 <div align="center">
 
-<img src="docs/core.gif" width="560" alt="Orbit 코어: 대기, 작업 중, 질문">
+**English** | [한국어](README.ko.md) | [日本語](README.ja.md)
+
+<img src="docs/en/core.gif" width="560" alt="The Orbit core: idle, working, asking">
 
 # ORBIT HUD
 
-**Claude Code 세션 여러 개를, 화면 구석의 코어 하나로.**
+**All your Claude Code sessions, in one core in the corner of your screen.**
 
-평소엔 코어 하나만 떠 있다가, 확인할 일이 생길 때만 카드가 스르륵 나왔다 들어가는<br>
-픽셀 아트 플로팅 HUD예요.
+A pixel-art floating HUD that stays a single core most of the time,<br>
+and slides a card out only when there's something for you to check.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-D97757)
 ![Electron](https://img.shields.io/badge/Electron-38-47848F?logo=electron&logoColor=white)
-![Local](https://img.shields.io/badge/통신-로컬%20전용-22D3EE)
+![Local](https://img.shields.io/badge/network-local%20only-22D3EE)
 [![License: MIT](https://img.shields.io/badge/License-MIT-4ADE80)](LICENSE)
 
 </div>
 
 ---
 
-## 왜 만들었나
+## Why
 
-Claude Code로 세션을 여러 개 돌리다 보면 이런 일이 생겨요.
+Run several Claude Code sessions at once and this starts to happen:
 
-- 어느 세션이 끝났는지, 어느 세션이 **질문하고 기다리는지** 창을 하나하나 열어 봐야 알아요.
-- 5시간 사용량이 얼마나 남았는지, **어떤 세션이 많이 먹었는지** 알기 어려워요.
-- 컨텍스트가 꽉 차 가는 걸 놓치고 있다가 자동 압축을 맞아요.
+- To see which session has finished, or which one is **asking a question and waiting**, you have to open each window.
+- It's hard to tell how much of your 5-hour usage is left, or **which session used the most**.
+- You miss the context filling up and get hit by auto-compaction.
 
-ORBIT HUD는 이걸 **코어 하나**로 보여 줘요. 필요한 순간에만 알려 주고, 대답이나 압축 같은 간단한 일은 앱을 열지 않고 그 자리에서 처리해요.
+ORBIT HUD shows all of this in **a single core**. It speaks up only when it matters, and handles small things like answering or compacting right there, without opening the app.
 
-## 기능
+## Features
 
-### ◉ 코어 하나로 상태 파악
+### ◉ Everything at a glance in one core
 
-| 링 | 빛 | 색 |
+| Ring | Light | Color |
 | --- | --- | --- |
-| 5시간 사용량만큼 차오르고, 60%면 노랑, 85%면 빨강으로 바뀌어요 | 어느 세션이든 작업 중이면 램프가 돌며 빛나요 | 누군가 질문하면 보라색으로 바뀌어요 |
+| Fills up with your 5-hour usage, turning yellow at 60% and red at 85% | A lamp spins and glows while any session is working | Turns purple when someone asks a question |
 
-마우스를 올리면 5시간·7일 사용량과 리셋 시각을 보여 주는 카드가 잠깐 나와요.
+<p align="center"><img src="docs/ring.png" width="560" alt="The ring at 20%, 45%, 70% and 92% of 5-hour usage"></p>
 
-### ? 질문에 위젯에서 바로 답하기
+**The ring is your 5-hour usage.** It fills clockwise from 12 o'clock as you use up the current 5-hour window, so you can tell how much is left without opening anything: blue below 60%, yellow from 60%, red from 85%. When the window resets, the ring empties and fills up again. It shows the whole account's usage, so it reads the same whichever session you're in.
 
-<img src="docs/question.png" width="420" align="right" alt="질문 카드">
+Hover over it and a card briefly shows your 5-hour and 7-day usage and when they reset.
 
-Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 카드가 나와요.
+### ? Answer questions right from the widget
 
-- 질문이 하나이고 하나만 고르면 되면, 선택지를 **누르는 즉시** 답이 가요.
-- 여러 개 고르는 질문은 체크한 뒤 "답하기"를 눌러요.
-- 질문이 여러 개면 한 장씩 넘기며 답해요.
-- 원하는 답이 없으면 직접 입력해요.
+<img src="docs/en/question.png" width="420" align="right" alt="Question card">
 
-앱의 질문 창과 동시에 떠 있어서, 어느 쪽에서 답해도 돼요.
+When Claude asks a multiple-choice question, the core turns purple and a question card appears.
+
+- If there's one question with a single answer, your answer goes out **the moment you click** an option.
+- For questions with multiple answers, tick your choices and press "Answer".
+- If there are several questions, page through them one at a time.
+- If the answer you want isn't listed, type your own.
+
+It shows up alongside the app's own question prompt, so you can answer from either side.
 
 <br clear="right">
 
-### ▤ 세션 패널과 채팅
+### ▤ Session panel and chat
 
-<img src="docs/panel-chat.png" alt="세션 패널과 채팅 카드">
+<img src="docs/en/panel-chat.png" alt="Session panel and chat card">
 
-코어를 클릭하면 세션 목록이 펼쳐져요.
+Click the core to open the session list.
 
-- **한 줄 요약:** 각 세션이 지금 무엇을 하는지(`payment.ts 수정 중`) 보여 줘요.
-- **컨텍스트 게이지:** 숫자 대신 칸으로 보여 줘요. 마우스를 올리면 압축 버튼으로 바뀌고, 한 번 누르면 압축해요.
-- **`5h ≈19%`:** 이번 5시간 창에서 그 세션이 쓴 비중이에요. 캐시 토큰이 싼 것까지 반영한 비용 장부로 계산해요.
-- **`↗`:** 앱의 해당 세션으로 이동해요.
+- **One-line summary:** shows what each session is doing right now (`Editing payment.ts`).
+- **Context gauge:** shown as blocks instead of numbers. Hover over it and it turns into a compact button; one click compacts.
+- **`5h ≈19%`:** that session's share of the current 5-hour window. It's calculated from a cost ledger that accounts for cheaper cached tokens.
+- **`↗`:** jumps to that session in the app.
+- **Core color = prompt cache:** the small core in front of each session shows its cache state. Normal color while the cache is valid, yellow when the time left before it expires drops below 1/5 of its lifetime (5 min / 1 h), and gray once it has expired. Hover over the core to see the time left, how much the next message will write to the cache from scratch once it has expired (`The next message writes all 720k of context to the cache again`), the hit rate (the share of input sent that was read from cache), and request and miss counts. The numbers come from the session's transcript file.
 
-세션을 누르면 패널 옆에 **채팅 카드**가 열려요. 최근 대화를 보고 바로 메시지를 보낼 수 있어요.
+Click a session and a **chat card** opens next to the panel. You can read the recent conversation and send a message right away.
 
-- 작업 중인 세션에 보낸 메시지는 **대기**했다가 작업이 끝나면 들어가요.
-- 대기 중인 메시지는 그동안 **취소**할 수 있어요.
+- A message sent to a session that's working **waits** and goes in once the work is done.
+- You can **cancel** a waiting message in the meantime.
 
-### ✓ 필요할 때만 나오는 알림
+### ✓ Notifications only when needed
 
-<img src="docs/notice.png" width="464" alt="작업 완료 알림">
+<img src="docs/en/notice.png" width="464" alt="Task complete notification">
 
-- 작업이 끝나면 초록 카드로 알려요. 누르면 그 세션으로 이동해요.
-- 컨텍스트나 5시간 사용량이 85%를 넘으면 한 번 경고해요.
-- 몇 초 뒤엔 다시 코어 속으로 들어가요.
+- When work finishes, a green card lets you know. Click it to jump to that session.
+- When context or 5-hour usage passes 85%, you get a one-time warning.
+- After a few seconds, it slips back into the core.
 
-## 조작법
+## Controls
 
-| 동작 | 하는 일 |
+| Action | What it does |
 | --- | --- |
-| 코어 **클릭** | 세션 패널 열기 / 닫기 |
-| 코어 **드래그** | 원하는 곳으로 옮기기 (위치는 기억해요) |
-| 코어에 **마우스 올리기** | 사용량 카드 보기 |
-| 코어 **우클릭** | 코어 크기, 위치 초기화, 숨기기, 종료 |
-| **`Ctrl` + `Alt` + `O`** (맥: `Control` + `Option` + `O`) | 어디서든 위젯 숨기기 / 보이기 |
-| `/hud on` · `/hud off` | Claude Code에서 위젯 켜기 / 숨기기 |
-| 세션 행 **클릭** | 채팅 카드 열기 (`Enter` 보내기 · `Shift+Enter` 줄바꿈 · `Esc` 닫기) |
+| **Click** the core | Open / close the session panel |
+| **Drag** the core | Move it anywhere (the position is remembered) |
+| **Hover** over the core | Show the usage card |
+| **Right-click** the core, or **⚙** in the panel | Core size, Language, Reset position, Hide, Quit widget |
+| **`Ctrl` + `Alt` + `O`** (Mac: `Control` + `Option` + `O`) | Hide / show the widget from anywhere |
+| `/hud on` · `/hud off` | Show / hide the widget from Claude Code |
+| `/hud lang auto` · `en` · `ko` · `ja` | Change the language from Claude Code (`auto` follows the system) |
+| **Click** a session row | Open the chat card (`Enter` send · `Shift+Enter` new line · `Esc` close) |
 
-## 설치
+## Installation
 
-**필요한 것:** Windows 10/11 또는 macOS, 플러그인 함수 훅을 지원하는 Claude Code 데스크톱 앱, [Node.js](https://nodejs.org) 18 이상.
+**Requirements:** Windows 10/11 or macOS, the Claude Code desktop app with plugin function hooks support, and [Node.js](https://nodejs.org) 18 or later.
 
-1. 저장소를 받아요.
+1. Clone the repository.
 
    ```bash
    git clone https://github.com/Lab-Dawn/orbit-hud.git
    ```
 
-2. `~/.claude/settings.json`의 `env`에 플러그인 폴더를 등록하고 함수 훅을 켜요.
+2. Register the plugin folder under `env` in `~/.claude/settings.json` and turn on function hooks.
 
    ```json
    {
@@ -112,57 +120,59 @@ Claude가 선택지 질문을 하면 코어가 보라색으로 바뀌고 질문 
    }
    ```
 
-   맥이라면 경로를 `/Users/<이름>/path/to/orbit-hud`처럼 써요.
+   On a Mac, write the path like `/Users/<name>/path/to/orbit-hud`.
 
-3. Claude Code를 다시 시작하면 세션이 시작될 때 코어가 화면 오른쪽 아래에 떠요.
+3. Restart Claude Code, and the core appears in the bottom-right corner of your screen when a session starts.
 
-처음 한 번은 위젯이 쓰는 Electron(약 100MB)을 `~/.claude/orbit-hud-live/runtime`에 내려받느라 1분쯤 걸려요. 플러그인 폴더에는 아무것도 깔지 않아요. `git clone`으로 받아 쓰는 방식이라 맥에서도 개발자 서명이나 따로 허용할 것 없이 실행돼요.
+The first time, it takes about a minute to download the Electron runtime the widget uses (about 100 MB) into `~/.claude/orbit-hud-live/runtime`. Nothing is installed into the plugin folder. Because you use it straight from a `git clone`, it runs on a Mac too without a developer signature or any extra approval.
 
-> 코드를 고치면서 쓸 거라면 `"CLAUDE_CODE_PLUGIN_DIR_WATCH": "1"`도 넣어 두세요. 저장하는 즉시 다시 불러와요.
+The widget and plugin UI are available in English, Korean and Japanese. By default they follow your OS language (falling back to English), and you can pick one yourself from "Language" in the panel's ⚙ menu (also the core's right-click menu) or with `/hud lang`.
 
-## 동작 방식
+> If you'll be editing the code while you use it, also add `"CLAUDE_CODE_PLUGIN_DIR_WATCH": "1"`. Changes are reloaded the moment you save.
+
+## How it works
 
 ```mermaid
 flowchart LR
-  subgraph S["Claude Code 세션 (세션마다 하나)"]
-    P["플러그인<br/>hooks/register.tsx"]
+  subgraph S["Claude Code session (one per session)"]
+    P["Plugin<br/>hooks/register.tsx"]
   end
-  F[("~/.claude/orbit-hud-live/<br/>JSON 파일")]
-  W["위젯<br/>app/ (Electron)"]
-  P -- "상태 · 사용량 · 질문 · 대화" --> F
+  F[("~/.claude/orbit-hud-live/<br/>JSON files")]
+  W["Widget<br/>app/ (Electron)"]
+  P -- "status · usage · questions · conversation" --> F
   F --> W
-  W -- "압축 · 답변 · 메시지" --> F
+  W -- "compact · answers · messages" --> F
   F --> P
 ```
 
-- 세션마다 플러그인이 자기 상태를 `sessions/<세션 id>.json`에 써요. 위젯 하나가 그 파일들을 모아 보여 줘요.
-- 위젯에서 누른 압축, 답변, 메시지는 파일로 돌아가고, 해당 세션의 플러그인이 받아서 처리해요.
-- 주고받는 건 전부 내 컴퓨터 안의 파일이에요. 처음에 Electron을 내려받는 것 말고는 외부로 나가는 통신이 없어요.
+- Each session's plugin writes its own state to `sessions/<session id>.json`. A single widget gathers those files and shows them.
+- Compactions, answers and messages you trigger in the widget go back as files, and the plugin for that session picks them up and handles them.
+- Everything exchanged is a file on your own computer. Apart from the initial Electron download, nothing goes out over the network.
 
-## 토큰과 개인정보
+## Tokens and privacy
 
-- **평소엔 토큰을 쓰지 않아요.** 상태, 사용량, 대화 기록은 Claude Code가 이미 가진 값을 읽기만 해요. 모델을 부르지 않아요.
-- **토큰을 쓰는 건 직접 누를 때뿐이에요.** 압축, 채팅 메시지, 질문 답변은 앱에서 같은 일을 할 때와 똑같은 양을 써요.
-- **대화 내용은 내 컴퓨터에만 있어요.** 채팅 카드가 열려 있을 때만 최근 대화를 로컬 파일로 내보내요.
+- **It uses no tokens day to day.** Status, usage and transcripts are only read from values Claude Code already has. It never calls the model.
+- **Tokens are spent only when you press something.** Compacting, chat messages and question answers use exactly as much as doing the same thing in the app.
+- **Your conversations stay on your computer.** Recent conversation is exported to a local file only while a chat card is open.
 
-## 알아 둘 점
+## Good to know
 
-- `5h ≈N%`는 추정치예요. Claude Code 밖(웹, 다른 기기)에서 쓴 양은 세션별로 나눌 수 없어요.
-- 위젯에서 보낸 메시지는 대화 기록에 플러그인이 보낸 것으로 남아요.
-- 대기 중인 메시지는 위젯 메모리에만 있어서, 위젯을 다시 띄우면 사라져요.
+- `5h ≈N%` is an estimate. Usage outside Claude Code (the web, other devices) can't be split by session.
+- Messages sent from the widget are recorded in the transcript as sent by the plugin.
+- Waiting messages live only in the widget's memory, so they're lost if the widget restarts.
 
-## 구성
+## Layout
 
-| 경로 | 내용 |
+| Path | Contents |
 | --- | --- |
-| `hooks/register.tsx` | 플러그인: 세션 상태를 내보내고 위젯의 요청(압축, 답변, 메시지)을 처리 |
-| `app/` | 위젯: 픽셀 아트 코어, 카드, 패널, 채팅 (Electron, Windows와 macOS 공용) |
-| `app/launch.js` | 위젯 실행기: 처음엔 Electron을 설치하고 위젯을 띄워요 |
-| `types/index.d.ts` | 플러그인 상태 타입 |
-| `docs/tools/` | README 이미지를 가짜 데모 세션으로 다시 찍는 스크립트 |
+| `hooks/register.tsx` | Plugin: exports session state and handles requests from the widget (compact, answers, messages) |
+| `app/` | Widget: pixel-art core, cards, panel, chat (Electron, shared by Windows and macOS) |
+| `app/launch.js` | Widget launcher: installs Electron the first time, then starts the widget |
+| `types/index.d.ts` | Plugin state types |
+| `docs/tools/` | Scripts that reshoot the README images using fake demo sessions |
 
-## 라이선스
+## License
 
-[MIT](LICENSE). 누구나 자유롭게 쓰고, 고치고, 다시 배포해도 돼요. 저작권 표시만 남겨 주세요.
+[MIT](LICENSE). Anyone is free to use, modify and redistribute it. Just keep the copyright notice.
 
-도트 글씨에 쓴 [갈무리](https://galmuri.quiple.dev) 글꼴은 SIL 오픈 폰트 라이선스 1.1을 따라요 (`app/fonts/Galmuri-OFL.txt`).
+The [Galmuri](https://galmuri.quiple.dev) font used for the pixel lettering is licensed under the SIL Open Font License 1.1 (`app/fonts/Galmuri-OFL.txt`).
