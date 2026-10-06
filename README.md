@@ -57,7 +57,7 @@ When Claude asks a multiple-choice question, the core turns purple and a questio
 - If there are several questions, page through them one at a time.
 - If the answer you want isn't listed, type your own.
 
-It shows up alongside the app's own question prompt, so you can answer from either side.
+It shows up alongside the app's own question prompt, so you can answer from either side. To answer in the app, press **`↗`** to open that session there (the card folds away), or **`⌃`** to fold the card down to a single line until you need it. A long question scrolls inside the card instead of running off the screen.
 
 <br clear="right">
 
