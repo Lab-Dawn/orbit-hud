@@ -334,6 +334,10 @@ function layout() {
   const cx = S.left - S.area.x
   const cy = S.top - S.area.y
   place(core, cx, cy)
+  // A long question scrolls inside its card rather than running off the screen;
+  // the room leaves space for the card's head, answer button and frame.
+  const room = `${Math.max(160, S.area.height - EDGE * 2 - 130)}px`
+  if (cards.question.style.getPropertyValue('--q-room') !== room) cards.question.style.setProperty('--q-room', room)
   const hasPanel = !panel.hidden
   const hasChat = hasPanel && !chat.hidden
   const ph = hasPanel ? panel.offsetHeight : 0

@@ -46,6 +46,8 @@
 
       'q.title': 'Question',
       'q.openInApp': 'Open this session in the app',
+      'q.fold': 'Fold away',
+      'q.unfold': 'Unfold',
       'q.multi': ' · pick any',
       'q.typeOwn': 'Type your own',
       'q.typeAnswer': 'Type an answer',
@@ -159,6 +161,8 @@
 
       'q.title': '질문',
       'q.openInApp': '앱에서 이 세션 열기',
+      'q.fold': '접기',
+      'q.unfold': '펼치기',
       'q.multi': ' · 여러 개',
       'q.typeOwn': '직접 입력',
       'q.typeAnswer': '답을 입력하세요',
@@ -272,6 +276,8 @@
 
       'q.title': '質問',
       'q.openInApp': 'アプリでこのセッションを開く',
+      'q.fold': '折りたたむ',
+      'q.unfold': '開く',
       'q.multi': ' · 複数選択',
       'q.typeOwn': '直接入力',
       'q.typeAnswer': '回答を入力してください',

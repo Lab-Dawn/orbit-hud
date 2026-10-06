@@ -112,7 +112,23 @@ html, body {
 .q-dots i { width: 6px; height: 6px; background: var(--edge); }
 .q-dots i.is-now { background: var(--text); }
 .q-dots i.is-done { background: var(--ask); }
-.q-link { cursor: pointer; }
+.q-btn {
+  margin-left: 4px;
+  width: 26px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.q-btn:hover { background: var(--ask-wash); border-color: var(--ask-line); }
+.q-head.is-folded { cursor: pointer; }
+.q-scroll { max-height: var(--q-room, 640px); overflow-y: auto; margin-right: -8px; padding-right: 8px; }
+.q-scroll::-webkit-scrollbar { width: 4px; }
+.q-scroll::-webkit-scrollbar-thumb { background: var(--ask-line); }
+.q-scroll::-webkit-scrollbar-track { background: transparent; }
 .q-tag { display: inline-block; margin-top: 10px; padding: 0 6px; border: 1px solid var(--ask-line); background: var(--ask-wash); }
 .q-text { margin: 4px 0 8px; }
 .q-text.is-first { margin-top: 10px; }
@@ -127,7 +143,7 @@ html, body {
 }
 .q-option:hover { background: var(--hover); border-color: var(--ask-line); }
 .q-option.is-on { background: var(--ask-wash); border-color: var(--ask); }
-.q-option .px:first-child { margin-top: 12px; }
+.q-option .px:first-child { margin-top: 9px; }
 .q-about { margin-top: -6px; margin-bottom: 2px; }
 .q-field { position: relative; margin-top: 2px; }
 .q-field input {

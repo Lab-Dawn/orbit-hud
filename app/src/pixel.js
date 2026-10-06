@@ -245,7 +245,7 @@ function drawArrow(ctx) {
   art.forEach((row, y) => [...row].forEach((ch, x) => ch === '#' && ctx.fillRect(x, y, 1, 1)))
 }
 
-// Small hand-drawn marks, 7x7: close and jump (the font has neither in pixel form).
+// Small hand-drawn marks, 7x7: close, jump, fold and unfold (the font has none in pixel form).
 const ICONS = {
   close: ['#.....#', '.#...#.', '..#.#..', '...#...', '..#.#..', '.#...#.', '#.....#'],
   gear: [
@@ -263,6 +263,8 @@ const ICONS = {
   ],
   clip: ['..###..', '.#...#.', '.#.#.#.', '.#.#.#.', '.#.#.#.', '.#.#...', '..#....'],
   jump: ['..#####', '.....##', '....#.#', '...#..#', '..#....', '.#.....', '#......'],
+  fold: ['.......', '...#...', '..###..', '.##.##.', '##...##', '#.....#', '.......'],
+  unfold: ['.......', '#.....#', '##...##', '.##.##.', '..###..', '...#...', '.......'],
 }
 function icon(name, color, k = 2) {
   const art = ICONS[name]

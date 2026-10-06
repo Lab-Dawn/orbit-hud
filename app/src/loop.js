@@ -106,6 +106,8 @@ hud.on('debug', async word => {
     } else if (word.startsWith('cachetip:')) {
       const row = rows.get(word.slice(9))
       if (row) showCacheTip(row)
+    } else if (word === 'fold' || word === 'unfold') {
+      setQuestionFolded(word === 'fold')
     } else if (word === 'panel') {
       S.isOpen = true
       S.isSideSet = false

@@ -3,6 +3,8 @@
 
 const QUESTION_INNER = 408
 const OPTION_TEXT = 352
+// The question card reads in the smaller lettering, so a long question still fits on screen.
+const SMALL = { size: 'small' }
 
 // ---------- the glance (hover) ----------
 
@@ -154,7 +156,7 @@ function setQuestionError(text) {
   if (!Q || Q.error === text) return
   Q.error = text
   Q.errorBox.replaceChildren()
-  if (text) Q.errorBox.append(P.pixelText([text, 'Warn'], { maxWidth: QUESTION_INNER }))
+  if (text) Q.errorBox.append(P.pixelText([text, 'Warn'], { size: 'small', maxWidth: QUESTION_INNER }))
   Q.errorBox.hidden = !text
 }
 
@@ -164,9 +166,9 @@ function styleOption(item, option) {
   option.mark.replaceWith((option.mark = markerCanvas(item.isMulti, isOn)))
   if (option.styled === isOn) return
   option.styled = isOn
-  option.text.replaceChildren(P.pixelText([option.label, isOn ? 'Text' : 'Sub'], { maxWidth: OPTION_TEXT }))
+  option.text.replaceChildren(P.pixelText([option.label, isOn ? 'Text' : 'Sub'], { size: 'small', maxWidth: OPTION_TEXT, wrap: true }))
   if (option.about) {
-    const about = P.pixelText([option.about, 'Muted'], { maxWidth: OPTION_TEXT, wrap: true })
+    const about = P.pixelText([option.about, 'Muted'], { size: 'small', maxWidth: OPTION_TEXT, wrap: true })
     about.classList.add('q-about')
     option.text.append(about)
   }
@@ -177,7 +179,7 @@ function newField(hint, onEnter) {
   const input = el('input')
   input.type = 'text'
   input.spellcheck = false
-  const hintNode = P.pixelText([hint, 'Faint'], { maxWidth: QUESTION_INNER - 24 })
+  const hintNode = P.pixelText([hint, 'Faint'], { size: 'small', maxWidth: QUESTION_INNER - 24 })
   hintNode.classList.add('hint')
   input.addEventListener('input', () => {
     hintNode.hidden = !!input.value
@@ -199,14 +201,26 @@ function buildQuestion(s, key) {
   const head = el('div', 'q-head')
   const mini = P.pixelCanvas(P.MINI, P.MINI, 2)
   const headText = el('div', 'grow')
-  headText.append(P.pixelText([[tr('q.title'), 'Ask'], [' · ', 'Faint'], [s.title, 'Sub']], { maxWidth: QUESTION_INNER - 70 }))
+  headText.append(P.pixelText([[tr('q.title'), 'Ask'], [' · ', 'Faint'], [s.title, 'Sub']], { size: 'small', maxWidth: QUESTION_INNER - 110 }))
   const headRight = el('div', 'row')
-  const jump = el('span', 'q-link')
+  // To answer in the app instead: jump there (the card folds out of the way), or
+  // just fold it down to its head line; the head unfolds it again.
+  const jump = el('span', 'q-btn')
   jump.title = tr('q.openInApp')
   jump.append(P.icon('jump', 'Muted'))
+  jump.hidden = !s.appId
   jump.addEventListener('click', e => {
     e.stopPropagation()
     openApp(findSession(s.id))
+    setQuestionFolded(true)
+  })
+  const fold = el('span', 'q-btn')
+  fold.addEventListener('click', e => {
+    e.stopPropagation()
+    setQuestionFolded(!Q.isFolded)
+  })
+  head.addEventListener('click', () => {
+    if (Q && Q.isFolded) setQuestionFolded(false)
   })
   head.append(mini, headText, headRight)
 
@@ -214,9 +228,9 @@ function buildQuestion(s, key) {
     const item = { question: String(qq.question), isMulti: !!qq.multiSelect, isChoice: true, options: [], selected: new Set(), field: null, fieldWrap: null, list: null, tag: null }
     if (qq.header) {
       item.tag = el('div', 'q-tag')
-      item.tag.append(P.pixelText([[String(qq.header), 'Ask'], [qq.multiSelect ? tr('q.multi') : '', 'Muted']], { maxWidth: QUESTION_INNER - 20 }))
+      item.tag.append(P.pixelText([[String(qq.header), 'Ask'], [qq.multiSelect ? tr('q.multi') : '', 'Muted']], { size: 'small', maxWidth: QUESTION_INNER - 20 }))
     }
-    item.text = P.pixelText([item.question, 'Text'], { maxWidth: QUESTION_INNER, wrap: true })
+    item.text = P.pixelText([item.question, 'Text'], { size: 'small', maxWidth: QUESTION_INNER, wrap: true })
     item.text.classList.add('q-text')
     if (!item.tag) item.text.classList.add('is-first')
     const kind = qq.kind || 'choice'
@@ -249,7 +263,7 @@ function buildQuestion(s, key) {
   const errorBox = el('div', 'q-error')
   errorBox.hidden = true
   const isOneTap = items.length === 1 && items[0].isChoice && !items[0].isMulti
-  Q = { key, sessionId: s.id, id: String(qd.id), items, page: 0, isSent: false, isOneTap, head, headRight, jump, mini, errorBox, error: '', others: 0 }
+  Q = { key, sessionId: s.id, id: String(qd.id), items, page: 0, isSent: false, isOneTap, head, headRight, jump, fold, isFolded: false, mini, errorBox, error: '', others: 0 }
   for (const item of items) for (const option of item.options) styleOption(item, option)
   showQuestionPage()
 }
@@ -258,7 +272,7 @@ function updateQuestionHead() {
   const q = Q
   q.headRight.replaceChildren()
   if (q.others > 0) {
-    const more = P.pixelText([`+${q.others}`, 'Ask'])
+    const more = P.pixelText([`+${q.others}`, 'Ask'], SMALL)
     more.style.marginRight = '10px'
     more.title = tr('q.others', { n: q.others })
     q.headRight.append(more)
@@ -273,7 +287,52 @@ function updateQuestionHead() {
     })
     q.headRight.append(dots)
   }
+  q.fold.replaceChildren(P.icon(q.isFolded ? 'unfold' : 'fold', 'Muted'))
+  q.fold.title = tr(q.isFolded ? 'q.unfold' : 'q.fold')
   q.headRight.append(q.jump)
+  if (!q.isSent) q.headRight.append(q.fold)
+}
+
+// Folding rolls the card up over its content and leaves the head line; unfolding
+// rolls it back down. The cards follow the card's height frame by frame, so the edge
+// by the core stays put and the head glides.
+function setQuestionFolded(isFolded) {
+  const q = Q
+  if (!q || q.isFolded === isFolded || q.isRolling) return
+  const body = $('question-body')
+  const from = body.offsetHeight
+  if (isFolded) {
+    const pad = parseFloat(getComputedStyle(body).paddingTop) + parseFloat(getComputedStyle(body).paddingBottom)
+    rollQuestion(q, from, q.head.offsetHeight + pad, () => {
+      q.isFolded = true
+      showQuestionPage()
+    })
+  } else {
+    q.isFolded = false
+    showQuestionPage()
+    rollQuestion(q, from, body.offsetHeight)
+  }
+}
+
+function rollQuestion(q, from, to, done) {
+  const body = $('question-body')
+  q.isRolling = true
+  body.style.boxSizing = 'border-box'
+  body.style.overflow = 'hidden'
+  const roll = body.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 240, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' })
+  const follow = () => {
+    layout()
+    if (q.isRolling) requestAnimationFrame(follow)
+  }
+  requestAnimationFrame(follow)
+  roll.onfinish = () => {
+    q.isRolling = false
+    if (done && Q === q) done()
+    roll.cancel()
+    body.style.boxSizing = ''
+    body.style.overflow = ''
+    layout()
+  }
 }
 
 function showQuestionPage() {
@@ -281,33 +340,39 @@ function showQuestionPage() {
   const body = $('question-body')
   body.replaceChildren(q.head)
   updateQuestionHead()
+  q.head.classList.toggle('is-folded', q.isFolded && !q.isSent)
+  if (q.isFolded && !q.isSent) return
   if (q.isSent) {
     P.drawMiniState(q.mini.getContext('2d'), 'done', 0)
-    const done = P.pixelText([tr('q.sent'), 'Done'])
+    const done = P.pixelText([tr('q.sent'), 'Done'], SMALL)
     done.style.marginTop = '10px'
-    body.append(done, P.pixelText([tr('q.continues'), 'Muted']))
+    body.append(done, P.pixelText([tr('q.continues'), 'Muted'], SMALL))
     cards.question.style.setProperty('--frame-edge', 'rgba(74,222,128,0.8)')
     return
   }
+  // The question and its options scroll when they are taller than the screen allows;
+  // the head and the answer button stay in sight.
   const item = q.items[q.page]
-  if (item.tag) body.append(item.tag)
-  body.append(item.text)
-  if (item.list) body.append(item.list)
-  body.append(item.fieldWrap, q.errorBox)
+  const scroll = el('div', 'q-scroll')
+  if (item.tag) scroll.append(item.tag)
+  scroll.append(item.text)
+  if (item.list) scroll.append(item.list)
+  scroll.append(item.fieldWrap, q.errorBox)
+  body.append(scroll)
   const foot = el('div', 'q-foot')
   const isLast = q.page === q.items.length - 1
-  if (q.isOneTap) foot.append(P.pixelText([tr('q.oneTap'), 'Faint']))
+  if (q.isOneTap) foot.append(P.pixelText([tr('q.oneTap'), 'Faint'], SMALL))
   else {
     const back = el('span', 'q-back')
     if (q.page > 0) {
-      back.append(P.pixelText([tr('q.back'), 'Muted']))
+      back.append(P.pixelText([tr('q.back'), 'Muted'], SMALL))
       back.addEventListener('click', e => {
         e.stopPropagation()
         questionAction('back')
       })
     }
     const go = el('div', 'q-button')
-    go.append(P.pixelText([isLast ? tr('q.answer') : tr('q.next'), 'Text']))
+    go.append(P.pixelText([isLast ? tr('q.answer') : tr('q.next'), 'Text'], SMALL))
     go.addEventListener('click', e => {
       e.stopPropagation()
       questionAction('next')
@@ -334,6 +399,8 @@ function updateQuestion(list) {
     Q.others = others
     updateQuestionHead()
   }
+  // The app's own session may be found only after the card is built.
+  Q.jump.hidden = !asking.appId
   showCard(cards.question)
 }
 
