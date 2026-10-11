@@ -58,8 +58,7 @@ function logFailure(err) {
   } catch {}
 }
 
-// The monitor the core sits on; a saved spot on a monitor that has gone falls back
-// to the primary one, bottom right.
+// The monitor whose work area holds a point, if any.
 function displayFor(x, y) {
   if (x == null || y == null) return screen.getPrimaryDisplay()
   const hit = screen.getAllDisplays().find(d => {
@@ -67,6 +66,14 @@ function displayFor(x, y) {
     return x >= a.x && x < a.x + a.width && y >= a.y && y < a.y + a.height
   })
   return hit || null
+}
+
+function homeDisplay() {
+  if (prefs.left == null || prefs.top == null) return screen.getPrimaryDisplay()
+  // The core's middle, roughly: its top left corner can sit just off a monitor's edge.
+  const x = Math.round(prefs.left + 32)
+  const y = Math.round(prefs.top + 32)
+  return displayFor(x, y) || screen.getDisplayNearestPoint({ x, y })
 }
 
 function placeOn(d) {
@@ -97,12 +104,10 @@ function start() {
     // The core near the bottom right, with room above it for the panel and chat.
     prefs = { ...prefs, left: CAPTURE.width - 130, top: CAPTURE.height - 66, hidden: false }
   }
-  let d = displayFor(prefs.left, prefs.top)
-  if (!d) {
-    d = screen.getPrimaryDisplay()
-    prefs.left = null
-    prefs.top = null
-  }
+  // A saved spot on a monitor that is off for now is kept: the window opens on the
+  // nearest monitor, the page shows the core inside it, and it goes home when the
+  // monitor comes back.
+  const d = homeDisplay()
   const a = CAPTURE ? { x: 0, y: 0, width: CAPTURE.width * ZOOM, height: CAPTURE.height * ZOOM } : d.workArea
   win = new BrowserWindow({
     x: a.x, y: a.y, width: a.width, height: a.height,
@@ -155,10 +160,13 @@ function start() {
   }
   setInterval(checkFiles, 500)
   if (CAPTURE) return
-  screen.on('display-metrics-changed', () => {
-    if (display) placeOn(screen.getDisplayNearestPoint({ x: display.workArea.x + 1, y: display.workArea.y + 1 }))
-    send('area', areaInfo())
-  })
+  // Monitors turned off and on, plugged, unplugged or rearranged: the window goes back
+  // to the monitor the core was left on, or the nearest one while that is missing.
+  const refit = () => {
+    placeOn(homeDisplay())
+    send('area', { ...areaInfo(), home: { left: prefs.left, top: prefs.top } })
+  }
+  for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) screen.on(ev, refit)
 }
 
 function send(channel, value) {
@@ -190,6 +198,7 @@ function checkFiles() {
       else if (word === 'show') setHidden(false)
       else if (word === 'toggle') setHidden(!prefs.hidden)
       else if (word.startsWith('lang:')) chooseLang(word.slice(5))
+      else if (word === 'notices:on' || word === 'notices:off') setNotices(word === 'notices:on')
     }
     if (!isSnapping && fs.existsSync(snapRequest)) {
       isSnapping = true
@@ -293,6 +302,14 @@ function chooseLang(choice) {
   send('lang', applyLang())
 }
 
+// Notices (a finished task, context or 5h running out) can be turned off for a quiet
+// widget: the core still shows everything, nothing pops out of it.
+function setNotices(isOn) {
+  prefs.notices = isOn
+  savePrefs()
+  send('notices', isOn)
+}
+
 ipcMain.on('menu', (_e, scale) => {
   const t = I18N.t
   const menu = Menu.buildFromTemplate([
@@ -314,6 +331,7 @@ ipcMain.on('menu', (_e, scale) => {
         click: () => chooseLang(choice),
       })),
     },
+    { label: t('menu.notices'), type: 'checkbox', checked: prefs.notices !== false, click: () => setNotices(prefs.notices === false) },
     { label: t('menu.resetPosition'), click: () => send('reset-position') },
     { label: t('menu.hide'), accelerator: 'Ctrl+Alt+O', click: () => setHidden(true) },
     { type: 'separator' },

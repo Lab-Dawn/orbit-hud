@@ -773,6 +773,12 @@ export const register: Register = on => {
       return { text: t('hud.hidden') }
     }
     if (arg === 'lang' || arg.startsWith('lang ')) return { text: await chooseLang($, arg.slice(4).trim().toLowerCase()) }
+    // /hud notify on|off: the widget's notices (finished, context, 5h); questions still come.
+    if (arg === 'notify on' || arg === 'notify off') {
+      const isOn = arg === 'notify on'
+      await $.fs.write(widgetCommandFile, `notices:${isOn ? 'on' : 'off'}`)
+      return { text: t(isOn ? 'hud.noticesOn' : 'hud.noticesOff') }
+    }
     await $.ui.open({ id: PANE, title: t('pane.title') })
     return { text: t('hud.paneOpened') }
   })

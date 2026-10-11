@@ -106,6 +106,9 @@ hud.on('debug', async word => {
     } else if (word.startsWith('cachetip:')) {
       const row = rows.get(word.slice(9))
       if (row) showCacheTip(row)
+    } else if (word === 'quiet:on' || word === 'quiet:off') {
+      setQuiet(word === 'quiet:on')
+      await update()
     } else if (word === 'fold' || word === 'unfold') {
       setQuestionFolded(word === 'fold')
     } else if (word === 'panel') {
@@ -160,6 +163,11 @@ function setLang(lang) {
   for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = tr(node.dataset.i18nPlaceholder)
 }
 
+hud.on('notices', isOn => {
+  setQuiet(!isOn)
+  update()
+})
+
 hud.on('lang', async lang => {
   setLang(lang)
   for (const row of rows.values()) row.node.remove()
@@ -176,6 +184,7 @@ hud.on('lang', async lang => {
   S.area = await hud.area()
   const prefs = await hud.prefs()
   setScale([2, 3, 4].includes(prefs.scale) ? prefs.scale : 2)
+  setQuiet(prefs.notices === false)
   if (prefs.left != null && prefs.top != null) {
     S.left = prefs.left
     S.top = prefs.top
@@ -184,6 +193,7 @@ hud.on('lang', async lang => {
     S.left = p.left
     S.top = p.top
   }
+  fitInArea()
   setCardSide(true)
   drawCore()
   await update()

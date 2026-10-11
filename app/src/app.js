@@ -31,6 +31,7 @@ const S = {
   top: null,
   scale: 2,
   isOpen: false,
+  isQuiet: false, // notices off
   focusId: null,
   isCardsLeft: false,
   isAbove: true,
@@ -541,8 +542,29 @@ hud.on('reset-position', () => {
   update()
 })
 
-hud.on('area', area => {
+// The core is shown inside the monitor the window is on. Its saved spot is left as it
+// is, so when a monitor that was off comes back the window returns there with it.
+function fitInArea() {
+  const s = coreSize()
+  const a = S.area
+  S.left = Math.min(Math.max(S.left, a.x + EDGE), a.x + a.width - s - EDGE)
+  S.top = Math.min(Math.max(S.top, a.y + EDGE), a.y + a.height - s - EDGE)
+}
+
+hud.on('area', ({ home, ...area }) => {
   S.area = area
+  if (S.drag) {
+    layout()
+    return
+  }
+  if (home && home.left != null && home.top != null) {
+    S.left = home.left
+    S.top = home.top
+  }
+  fitInArea()
+  S.isSideSet = false
+  setCardSide(true)
+  S.cardsAt = null
   layout()
 })
 

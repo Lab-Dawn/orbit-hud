@@ -86,6 +86,22 @@ Click a session and a **chat card** opens next to the panel. You can read the re
 - When context or 5-hour usage passes 85%, you get a one-time warning.
 - After a few seconds, it slips back into the core.
 
+### ⚙ Settings
+
+Right-click the core or press **⚙** in the panel to open the settings menu.
+
+| Setting | What it does |
+| --- | --- |
+| Size | Small / medium / large core |
+| Language | Auto (system language) · English · 한국어 · 日本語 |
+| Notifications | When off, no card pops out on its own; only the core stays on screen |
+| Reset position | Move the core back to the bottom right of the screen |
+| Hide · Quit widget | Hide it for a while (bring it back with `Ctrl` + `Alt` + `O`) or close it |
+
+<img src="docs/en/notify.png" width="666" alt="Notifications on and off">
+
+With notifications off, neither the finished and limit cards nor the question card come out. When a question arrives only the core turns purple, so you can keep the screen clear and still catch the state at a glance. Hovering over and clicking the core work as before. `/hud notify off` · `on` does the same, and the setting is kept when the widget restarts.
+
 ## Controls
 
 | Action | What it does |
@@ -93,9 +109,10 @@ Click a session and a **chat card** opens next to the panel. You can read the re
 | **Click** the core | Open / close the session panel |
 | **Drag** the core | Move it anywhere (the position is remembered) |
 | **Hover** over the core | Show the usage card |
-| **Right-click** the core, or **⚙** in the panel | Core size, Language, Reset position, Hide, Quit widget |
+| **Right-click** the core, or **⚙** in the panel | Core size, Language, Notifications on/off, Reset position, Hide, Quit widget |
 | **`Ctrl` + `Alt` + `O`** (Mac: `Control` + `Option` + `O`) | Hide / show the widget from anywhere |
 | `/hud on` · `/hud off` | Show / hide the widget from Claude Code |
+| `/hud notify on` · `off` | Turn notifications on or off from Claude Code (off: no cards pop out, only the core stays on screen; it still turns violet for a question) |
 | `/hud lang auto` · `en` · `ko` · `ja` | Change the language from Claude Code (`auto` follows the system) |
 | **Click** a session row | Open the chat card (`Enter` send · `Shift+Enter` new line · `Esc` close) |
 

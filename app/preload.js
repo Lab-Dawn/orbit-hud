@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('hud', {
   snap: rect => ipcRenderer.send('snap', rect),
   failure: text => ipcRenderer.send('failure', text),
   on: (channel, listener) => {
-    if (['area', 'hidden', 'debug', 'scale', 'reset-position', 'lang'].includes(channel)) {
+    if (['area', 'hidden', 'debug', 'scale', 'reset-position', 'lang', 'notices'].includes(channel)) {
       ipcRenderer.on(channel, (_e, value) => listener(value))
     }
   },

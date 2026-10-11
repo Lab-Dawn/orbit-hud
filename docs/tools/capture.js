@@ -3,7 +3,7 @@
 // docs/raw); then run make_docs.py. Each README language gets its own pictures.
 //   node docs/tools/capture.js                     all pictures, in every language
 //   node docs/tools/capture.js --lang ko           one language
-//   node docs/tools/capture.js <step...>           only some: question coreframes ring panel-chat panel glance notice
+//   node docs/tools/capture.js <step...>           only some: question notify coreframes ring panel-chat panel glance notice
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -180,6 +180,17 @@ async function capture(lang) {
   try {
     await wait(4000)
     if (wants('question')) await snap('question')
+    // Notifications on and off: a question (folded, to fit the stage) and a finished task
+    // out of the core, then the core alone.
+    if (wants('notify')) {
+      await request('fold')
+      await request(`notice:Done|✓ ${D.projects[2]}|${D.notice}`)
+      await wait(900)
+      await snap('notify-on')
+      await snap('notify-off', 'quiet:on')
+      await request('quiet:off')
+      await wait(600)
+    }
     if (wants('coreframes')) {
       for (const mode of ['idle', 'working', 'ask']) await request(`coreframes:${mode}|38`)
       for (const mode of ['idle', 'working', 'ask']) {

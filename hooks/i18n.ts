@@ -29,7 +29,9 @@ const en = {
   'widget.noNode': "Couldn't start the Orbit widget. Check that Node.js is installed.",
   'widget.launchFailed': "Couldn't start the Orbit widget: {error}",
 
-  'hud.description': 'Show or hide the Orbit widget (/hud on, /hud off · Ctrl+Alt+O), change its language (/hud lang); no argument opens the work panel',
+  'hud.description': 'Show or hide the Orbit widget (/hud on, /hud off · Ctrl+Alt+O), turn its notifications on or off (/hud notify on|off), change its language (/hud lang); no argument opens the work panel',
+  'hud.noticesOn': 'Orbit notifications on.',
+  'hud.noticesOff': 'Orbit notifications off. Only the core stays on screen (it still turns violet for a question). /hud notify on brings them back.',
   'hud.langSet': 'Orbit language: {name}.',
   'hud.langNow': 'Orbit language: {name}. Change it with /hud lang auto | en | ko | ja (auto follows the system).',
   'hud.langAuto': 'Auto ({name})',
@@ -74,7 +76,9 @@ const ko: Record<Key, string> = {
   'widget.noNode': 'Orbit 위젯을 띄우지 못했어요. Node.js가 설치되어 있는지 확인해 주세요.',
   'widget.launchFailed': 'Orbit 위젯을 띄우지 못했어요: {error}',
 
-  'hud.description': 'Orbit 위젯 켜고 끄기 (/hud on, /hud off · 단축키 Ctrl+Alt+O), 언어 바꾸기 (/hud lang), 인자 없으면 작업 현황 패널',
+  'hud.description': 'Orbit 위젯 켜고 끄기 (/hud on, /hud off · 단축키 Ctrl+Alt+O), 알림 켜고 끄기 (/hud notify on|off), 언어 바꾸기 (/hud lang), 인자 없으면 작업 현황 패널',
+  'hud.noticesOn': 'Orbit 알림을 켰어요.',
+  'hud.noticesOff': 'Orbit 알림을 껐어요. 이제 코어만 떠 있어요 (질문이 오면 코어는 그대로 보라색이 돼요). /hud notify on 으로 다시 켤 수 있어요.',
   'hud.langSet': 'Orbit 언어: {name}',
   'hud.langNow': 'Orbit 언어: {name}. /hud lang auto | en | ko | ja 로 바꿀 수 있어요 (auto는 시스템 언어를 따라요).',
   'hud.langAuto': '자동 ({name})',
@@ -117,7 +121,9 @@ const ja: Record<Key, string> = {
   'widget.noNode': 'Orbit ウィジェットを起動できませんでした。Node.js がインストールされているか確認してください。',
   'widget.launchFailed': 'Orbit ウィジェットを起動できませんでした: {error}',
 
-  'hud.description': 'Orbit ウィジェットの表示切替 (/hud on, /hud off · Ctrl+Alt+O)、言語の変更 (/hud lang)、引数なしで作業状況パネル',
+  'hud.description': 'Orbit ウィジェットの表示切替 (/hud on, /hud off · Ctrl+Alt+O)、通知のオン・オフ (/hud notify on|off)、言語の変更 (/hud lang)、引数なしで作業状況パネル',
+  'hud.noticesOn': 'Orbit の通知をオンにしました。',
+  'hud.noticesOff': 'Orbit の通知をオフにしました。コアだけが表示されます（質問が来るとコアは紫色になります）。/hud notify on で元に戻せます。',
   'hud.langSet': 'Orbit の言語: {name}',
   'hud.langNow': 'Orbit の言語: {name}。/hud lang auto | en | ko | ja で変更できます (auto はシステムの言語に従います)。',
   'hud.langAuto': '自動 ({name})',

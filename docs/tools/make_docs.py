@@ -17,7 +17,21 @@ CORE_LABELS = {
 }
 
 
+NOTIFY_LABELS = {
+    "en": ("Notifications on", "Notifications off"),
+    "ko": ("알림 켬", "알림 끔"),
+    "ja": ("通知オン", "通知オフ"),
+}
+
+
 def crop(lang, name):
+    out = cropped(lang, name)
+    os.makedirs(os.path.join(ROOT, lang), exist_ok=True)
+    out.save(os.path.join(ROOT, lang, f"{name}.png"), optimize=True)
+    print(lang, name, out.size)
+
+
+def cropped(lang, name):
     shot = Image.open(os.path.join(RAW, lang, f"{name}.png")).convert("RGBA")
     img = Image.new("RGBA", shot.size, BG + (255,))
     img.alpha_composite(shot)
@@ -32,10 +46,26 @@ def crop(lang, name):
                 xs.append(x)
                 ys.append(y)
     box = (max(0, min(xs) - PAD), max(0, min(ys) - PAD), min(w, max(xs) + PAD), min(h, max(ys) + PAD))
-    out = img.crop(box)
-    os.makedirs(os.path.join(ROOT, lang), exist_ok=True)
-    out.save(os.path.join(ROOT, lang, f"{name}.png"), optimize=True)
-    print(lang, name, out.size)
+    return img.crop(box)
+
+
+def notify_pair(lang):
+    # The same moment with notifications on and off, side by side, the cores lined up
+    # along the bottom; each labelled underneath.
+    on, off = cropped(lang, "notify-on"), cropped(lang, "notify-off")
+    gap = 64
+    font = label_font(26, lang)
+    height = max(on.height, off.height) + 56
+    sheet = Image.new("RGB", (on.width + gap + off.width, height), BG)
+    dr = ImageDraw.Draw(sheet)
+    for img, x, label in ((on, 0, NOTIFY_LABELS[lang][0]), (off, on.width + gap, NOTIFY_LABELS[lang][1])):
+        top = height - 56 - img.height
+        sheet.paste(img, (x, top))
+        tw = dr.textlength(label, font=font)
+        dr.text((x + img.width - PAD - 64 - tw / 2, height - 46), label, font=font, fill=(125, 138, 153))
+    path = os.path.join(ROOT, lang, "notify.png")
+    sheet.save(path, optimize=True)
+    print(lang, "notify.png", sheet.size)
 
 
 def core_strip(lang):
@@ -104,5 +134,6 @@ def ring_strip():
 for lang in LANGS:
     for name in ("question", "panel-chat", "notice"):
         crop(lang, name)
+    notify_pair(lang)
     core_strip(lang)
 ring_strip()

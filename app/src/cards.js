@@ -46,6 +46,7 @@ const notices = []
 let notice = null
 
 function pushNotice(color, head, body, sessionId, action, seconds) {
+  if (S.isQuiet) return
   notices.push({ color, head, body, sessionId, action, seconds })
 }
 
@@ -109,6 +110,15 @@ function updateNotice() {
   const edge = { Done: 'rgba(74,222,128,0.8)', Danger: 'rgba(255,92,108,0.8)' }[n.color] || 'rgba(92,225,245,0.6)'
   card.style.setProperty('--frame-edge', edge)
   showCard(card)
+}
+
+// Notices off: only the core stays on screen. The queue goes and the one on show
+// closes; questions don't come out either (the core still turns violet for them).
+function setQuiet(isQuiet) {
+  S.isQuiet = isQuiet
+  if (!isQuiet) return
+  notices.length = 0
+  closeNotice()
 }
 
 function closeNotice() {
@@ -385,7 +395,7 @@ function showQuestionPage() {
 // The question card follows whichever session is asking; it slides back once answered.
 function updateQuestion(list) {
   const askers = list.filter(s => s.state === 'ask')
-  if (askers.length === 0) {
+  if (askers.length === 0 || S.isQuiet) {
     hideCard(cards.question)
     Q = null
     return
