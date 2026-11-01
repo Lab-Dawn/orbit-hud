@@ -29,8 +29,7 @@
       'ago.min': '{n} min ago',
 
       'usage.ctx': 'Context',
-      'usage.5h': '5 hours',
-      'usage.7d': '7 days',
+      'usage.7d': 'Weekly',
       'usage.waiting': 'Waiting for usage',
 
       'state.ask': 'Question',
@@ -41,8 +40,11 @@
       'notice.doneBody': 'Finished · {time} · {what}',
       'notice.ctxHead': 'Context {pct}% · {title}',
       'notice.ctxBody': 'Auto-compacts soon. Click to open the session',
-      'notice.fiveHead': '5-hour usage {pct}%',
-      'notice.fiveBody': '{reset} · Click to see the heaviest sessions',
+      'notice.weekHead': 'Weekly usage {pct}%',
+      'notice.weekBody': "{reset} · Click to see this week's heaviest sessions",
+      'week.tip': 'Show the sessions that used the most this week',
+      'week.empty': 'Nothing measured this week yet',
+      'week.more': '{n} more',
       close: 'Close',
 
       'q.title': 'Question',
@@ -81,7 +83,8 @@
 
       'panel.settings': 'Settings (language, size)',
       'panel.compactFace': '▼ Compact',
-      'panel.shareTip': "This session's share of the current 5-hour window (estimated from cost)",
+      'panel.shareTip': "This session's share of this week's usage, adding up until the weekly reset (estimated from cost)",
+      'panel.sharePrefix': 'week',
       'panel.jumpTip': 'Go to this session',
       'panel.compactTip': '{ctx} · click to compact',
       'panel.compacting': 'Compacting…',
@@ -145,8 +148,7 @@
       'ago.min': '{n}분 전',
 
       'usage.ctx': '컨텍스트',
-      'usage.5h': '5시간',
-      'usage.7d': '7일',
+      'usage.7d': '주간',
       'usage.waiting': '사용량 기다리는 중',
 
       'state.ask': '질문',
@@ -157,8 +159,11 @@
       'notice.doneBody': '끝났어요 · {time} · {what}',
       'notice.ctxHead': '컨텍스트 {pct}% · {title}',
       'notice.ctxBody': '곧 자동 압축돼요. 눌러서 세션 열기',
-      'notice.fiveHead': '5시간 사용량 {pct}%',
-      'notice.fiveBody': '{reset} · 눌러서 많이 쓴 세션 보기',
+      'notice.weekHead': '주간 사용량 {pct}%',
+      'notice.weekBody': '{reset} · 눌러서 이번 주 많이 쓴 세션 보기',
+      'week.tip': '이번 주에 많이 쓴 세션 보기',
+      'week.empty': '이번 주에 잰 사용량이 아직 없어요',
+      'week.more': '그 밖에 {n}개',
       close: '닫기',
 
       'q.title': '질문',
@@ -197,7 +202,8 @@
 
       'panel.settings': '설정 (언어·크기)',
       'panel.compactFace': '▼ 압축',
-      'panel.shareTip': '이번 5시간 창에서 이 세션이 쓴 비중 (비용 비중으로 나눈 추정치)',
+      'panel.shareTip': '이번 주 사용량에서 이 세션이 쓴 비중. 주간 리셋까지 누적돼요 (비용 비중으로 나눈 추정치)',
+      'panel.sharePrefix': '주간',
       'panel.jumpTip': '이 세션으로 이동',
       'panel.compactTip': '{ctx} · 눌러서 압축',
       'panel.compacting': '압축 중…',
@@ -261,8 +267,7 @@
       'ago.min': '{n}分前',
 
       'usage.ctx': 'コンテキスト',
-      'usage.5h': '5時間',
-      'usage.7d': '7日',
+      'usage.7d': '週間',
       'usage.waiting': '使用量を待っています',
 
       'state.ask': '質問',
@@ -273,8 +278,11 @@
       'notice.doneBody': '完了しました · {time} · {what}',
       'notice.ctxHead': 'コンテキスト {pct}% · {title}',
       'notice.ctxBody': 'まもなく自動圧縮されます。クリックでセッションを開く',
-      'notice.fiveHead': '5時間の使用量 {pct}%',
-      'notice.fiveBody': '{reset} · クリックで使用量の多いセッションを表示',
+      'notice.weekHead': '週間の使用量 {pct}%',
+      'notice.weekBody': '{reset} · クリックで今週使用量の多いセッションを表示',
+      'week.tip': '今週使用量の多いセッションを表示',
+      'week.empty': '今週はまだ使用量の記録がありません',
+      'week.more': 'ほか {n}件',
       close: '閉じる',
 
       'q.title': '質問',
@@ -313,7 +321,8 @@
 
       'panel.settings': '設定 (言語・サイズ)',
       'panel.compactFace': '▼ 圧縮',
-      'panel.shareTip': '現在の5時間枠でこのセッションが使った割合 (コスト比からの推定)',
+      'panel.shareTip': '今週の使用量のうちこのセッションが使った割合。週間リセットまで累積します (コスト比からの推定)',
+      'panel.sharePrefix': '週',
       'panel.jumpTip': 'このセッションへ移動',
       'panel.compactTip': '{ctx} · クリックで圧縮',
       'panel.compacting': '圧縮中…',

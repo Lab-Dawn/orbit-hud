@@ -27,7 +27,7 @@ and slides a card out only when there's something for you to check.
 Run several Claude Code sessions at once and this starts to happen:
 
 - To see which session has finished, or which one is **asking a question and waiting**, you have to open each window.
-- It's hard to tell how much of your 5-hour usage is left, or **which session used the most**.
+- It's hard to tell how much of your weekly usage is left, or **which session used the most**.
 - You miss the context filling up and get hit by auto-compaction.
 
 ORBIT HUD shows all of this in **a single core**. It speaks up only when it matters, and handles small things like answering or compacting right there, without opening the app.
@@ -38,13 +38,13 @@ ORBIT HUD shows all of this in **a single core**. It speaks up only when it matt
 
 | Ring | Light | Color |
 | --- | --- | --- |
-| Fills up with your 5-hour usage, turning yellow at 60% and red at 85% | A lamp spins and glows while any session is working | Turns purple when someone asks a question |
+| Fills up with your weekly usage, turning yellow at 60% and red at 85% | A lamp spins and glows while any session is working | Turns purple when someone asks a question |
 
-<p align="center"><img src="docs/ring.png" width="560" alt="The ring at 20%, 45%, 70% and 92% of 5-hour usage"></p>
+<p align="center"><img src="docs/ring.png" width="560" alt="The ring at 20%, 45%, 70% and 92% of weekly usage"></p>
 
-**The ring is your 5-hour usage.** It fills clockwise from 12 o'clock as you use up the current 5-hour window, so you can tell how much is left without opening anything: blue below 60%, yellow from 60%, red from 85%. When the window resets, the ring empties and fills up again. It shows the whole account's usage, so it reads the same whichever session you're in.
+**The ring is your weekly usage.** It fills clockwise from 12 o'clock as you use up the current weekly window, so you can tell how much is left without opening anything: blue below 60%, yellow from 60%, red from 85%. When the week resets, the ring empties and fills up again. It shows the whole account's usage, so it reads the same whichever session you're in.
 
-Hover over it and a card briefly shows your 5-hour and 7-day usage and when they reset.
+Hover over it and a card briefly shows your weekly usage and when it resets.
 
 ### ? Answer questions right from the widget
 
@@ -69,9 +69,12 @@ Click the core to open the session list.
 
 - **One-line summary:** shows what each session is doing right now (`Editing payment.ts`).
 - **Context gauge:** shown as blocks instead of numbers. Hover over it and it turns into a compact button; one click compacts.
-- **`5h ≈19%`:** that session's share of the current 5-hour window. It's calculated from a cost ledger that accounts for cheaper cached tokens.
+- **`week ≈11%`:** that session's share of this week's usage, adding up until the weekly reset. It's calculated from a cost ledger that accounts for cheaper cached tokens.
+- **This week's list:** click the weekly line at the top of the panel to see every session that used something this week, biggest first. Sessions that have already ended are included, dimmed.
 - **`↗`:** jumps to that session in the app.
 - **Core color = prompt cache:** the small core in front of each session shows its cache state. Normal color while the cache is valid, yellow when the time left before it expires drops below 1/5 of its lifetime (5 min / 1 h), and gray once it has expired. Hover over the core to see the time left, how much the next message will write to the cache from scratch once it has expired (`The next message writes all 720k of context to the cache again`), the hit rate (the share of input sent that was read from cache), and request and miss counts. The numbers come from the session's transcript file.
+
+<p align="center"><img src="docs/en/week.png" width="390" alt="This week's list, opened from the weekly line"></p>
 
 Click a session and a **chat card** opens next to the panel. You can read the recent conversation and send a message right away.
 
@@ -83,7 +86,7 @@ Click a session and a **chat card** opens next to the panel. You can read the re
 <img src="docs/en/notice.png" width="464" alt="Task complete notification">
 
 - When work finishes, a green card lets you know. Click it to jump to that session.
-- When context or 5-hour usage passes 85%, you get a one-time warning.
+- When context or weekly usage passes 85%, you get a one-time warning. Clicking the weekly warning opens this week's list.
 - After a few seconds, it slips back into the core.
 
 ### ⚙ Settings
@@ -174,7 +177,7 @@ flowchart LR
 
 ## Good to know
 
-- `5h ≈N%` is an estimate. Usage outside Claude Code (the web, other devices) can't be split by session.
+- `week ≈N%` is an estimate. Usage outside Claude Code (the web, other devices) can't be split by session.
 - Messages sent from the widget are recorded in the transcript as sent by the plugin.
 - Waiting messages live only in the widget's memory, so they're lost if the widget restarts.
 

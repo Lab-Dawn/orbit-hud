@@ -1,4 +1,4 @@
-// orbit-hud widget, the page: a pixel core that fills with the five-hour usage and
+// orbit-hud widget, the page: a pixel core that fills with the weekly usage and
 // glows while any Claude session works. Everything else stays tucked away: cards
 // slide out of the core only when something needs a look or an answer (a question,
 // a finished task, a warning), and slide back once dealt with. Hover the core for a
@@ -44,7 +44,9 @@ const S = {
   order: [],
   account: [],
   windowSpends: [],
-  fivePct: null,
+  weekPct: null,
+  weekTop: [],
+  isWeekOpen: false, // the week's list in the panel
   coreMode: 'idle',
   corePct: 0,
   coreFrame: 0,
@@ -139,7 +141,7 @@ async function readSessions() {
   const now = Date.now()
   for (const { id, age, stamp, data: d, cache, activeAt } of raw) {
     if (d.spend && d.spend.windowUsd != null) {
-      spends.push({ id, resetsAt: d.spend.resetsAt, usd: Number(d.spend.windowUsd), isPartial: !!d.spend.isPartial })
+      spends.push({ id, resetsAt: d.spend.resetsAt, usd: Number(d.spend.windowUsd), isPartial: !!d.spend.isPartial, name: d.title || d.project || id.slice(0, 8), isEnded: !!d.isEnded || age > ALIVE_MS, lastAt: d.writtenAt || 0 })
     }
     if (d.isEnded || age > ALIVE_MS) continue
     const view = await sessionView(id, d, age, stamp)
@@ -216,20 +218,24 @@ function accountUsage(list) {
   })
 }
 
-// Shares each session's spend in the running five-hour window out of the window's
-// usage: its cost over every session's cost in that window, times the 5h percent.
+// Shares each session's spend in the running weekly window out of the week's usage:
+// its cost over every session's cost in that window, times the weekly percent. Every
+// session file of the week counts, ended ones too, so the shares add up over the week;
+// S.weekTop keeps them all, biggest first, for the week's list.
 function setWindowShares(list) {
-  const five = S.account.find(m => m.short === '5h')
-  S.fivePct = five ? Number(five.pct) : null
-  const resetsAt = five && !five.isStale ? five.resetsAt : null
-  const inWindow = S.windowSpends.filter(x => sameWindow(x.resetsAt, resetsAt))
+  const week = S.account.find(m => m.short === '7d')
+  S.weekPct = week ? Number(week.pct) : null
+  const resetsAt = week && !week.isStale ? week.resetsAt : null
+  const inWindow = S.windowSpends.filter(x => sameWindow(x.resetsAt, resetsAt) && x.usd > 0)
   const sum = inWindow.reduce((a, x) => a + x.usd, 0)
+  const pctOf = x => (sum > 0 && S.weekPct != null ? (S.weekPct * x.usd) / sum : null)
   for (const s of list) {
     const mine = inWindow.find(x => x.id === s.id)
     s.windowUsd = mine ? mine.usd : null
     s.isPartial = mine ? mine.isPartial : false
-    s.windowPct = mine && sum > 0 && S.fivePct != null ? (S.fivePct * mine.usd) / sum : null
+    s.windowPct = mine ? pctOf(mine) : null
   }
+  S.weekTop = inWindow.map(x => ({ ...x, pct: pctOf(x) })).sort((a, b) => b.usd - a.usd)
 }
 
 const findSession = id => S.sessions.find(s => s.id === id)

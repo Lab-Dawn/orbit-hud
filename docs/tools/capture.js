@@ -3,7 +3,7 @@
 // docs/raw); then run make_docs.py. Each README language gets its own pictures.
 //   node docs/tools/capture.js                     all pictures, in every language
 //   node docs/tools/capture.js --lang ko           one language
-//   node docs/tools/capture.js <step...>           only some: question notify coreframes ring panel-chat panel glance notice
+//   node docs/tools/capture.js <step...>           only some: question notify coreframes ring panel-chat panel week glance notice
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -34,6 +34,7 @@ const wants = step => steps.length === 0 || steps.includes(step)
 const DEMO = {
   en: {
     projects: ['Payment module refactor', 'Blog dark mode', 'API docs cleanup', 'Raise test coverage'],
+    ended: [['Login page redesign', 7.4], ['Image upload fix', 1.6]],
     question: {
       question: 'How should dark mode work?', header: 'Approach',
       options: [['CSS variables', 'Switch with theme tokens'], ['Tailwind dark:', 'Set per class'], ['Mix both']],
@@ -48,6 +49,7 @@ const DEMO = {
   },
   ko: {
     projects: ['결제 모듈 리팩터링', '블로그 다크 모드', 'API 문서 정리', '테스트 커버리지 올리기'],
+    ended: [['로그인 화면 개편', 7.4], ['이미지 업로드 수정', 1.6]],
     question: {
       question: '다크 모드는 어떻게 할까요?', header: '구현 방식',
       options: [['CSS 변수', '테마 토큰으로 전환'], ['Tailwind dark:', '클래스마다 지정'], ['둘 다 섞어서']],
@@ -62,6 +64,7 @@ const DEMO = {
   },
   ja: {
     projects: ['決済モジュールのリファクタリング', 'ブログのダークモード', 'APIドキュメント整理', 'テストカバレッジ向上'],
+    ended: [['ログイン画面の刷新', 7.4], ['画像アップロードの修正', 1.6]],
     question: {
       question: 'ダークモードはどう実装しますか？', header: '実装方法',
       options: [['CSS変数', 'テーマトークンで切り替え'], ['Tailwind dark:', 'クラスごとに指定'], ['両方を組み合わせる']],
@@ -79,7 +82,6 @@ let D = DEMO.en
 
 const wait = ms => new Promise(r => setTimeout(r, ms))
 const RING_LEVELS = [20, 45, 70, 92]
-const reset5h = new Date(Date.now() + 162 * 60000).toISOString()
 const reset7d = new Date(Date.now() + 3 * 86400000 + 5 * 3600000).toISOString()
 
 // A made-up transcript of two responses, the last `ago` minutes back, for the cache line.
@@ -101,16 +103,15 @@ function writeTranscript(id, ttl, ago, hit) {
   return file
 }
 
-function writeSession(id, project, ctx, usd, isActive, current, question, startedAgo, cache) {
+function writeSession(id, project, ctx, usd, isActive, current, question, startedAgo, cache, isEnded = false) {
   const now = Date.now()
   const s = {
-    version: 1, project, writtenAt: now, limitsAt: now, isEnded: false, compact: 'idle', compactError: null, question,
+    version: 1, project, writtenAt: now, limitsAt: now, isEnded, compact: 'idle', compactError: null, question,
     transcript: writeTranscript(id, ...cache),
-    spend: { resetsAt: reset5h, windowUsd: usd, isPartial: false, turnUsd: 0, totalUsd: usd },
+    spend: { resetsAt: reset7d, windowUsd: usd, isPartial: false, turnUsd: 0, totalUsd: usd },
     usage: [
       { label: '컨텍스트', short: 'ctx', pct: ctx, resetsAt: null, tokens: ctx * 10000, window: 1000000 },
-      { label: '5시간', short: '5h', pct: 38, resetsAt: reset5h },
-      { label: '7일', short: '7d', pct: 54, resetsAt: reset7d },
+      { label: '7일', short: '7d', pct: 38, resetsAt: reset7d },
     ],
     work: { isActive, startedAt: now - startedAgo * 1000, endedAt: isActive ? 0 : now - 600000, files: 3, edited: 2, actions: 14, current, recent: [] },
   }
@@ -130,6 +131,8 @@ function writeAll(isAsking) {
   writeSession('a1000000-0000-0000-0000-000000000002', D.projects[1], 23, 2.1, false, null, isAsking ? question() : null, 0, ['1h', 22, 0.91])
   writeSession('a1000000-0000-0000-0000-000000000003', D.projects[2], 72, 3.4, false, null, null, 0, ['5m', 9, 0.88])
   writeSession('a1000000-0000-0000-0000-000000000004', D.projects[3], 18, 0.9, false, null, null, 0, ['1h', 52, 0.93])
+  // Sessions that ended earlier in the week: not listed, but in the week's sums.
+  D.ended.forEach(([name, usd], i) => writeSession(`a1000000-0000-0000-0000-00000000001${i}`, name, 0, usd, false, null, null, 0, ['5m', 600, 0.9], true))
 }
 
 async function request(word) {
@@ -197,7 +200,7 @@ async function capture(lang) {
         for (let k = 0; k < 12; k++) fs.renameSync(path.join(demo, `core-${mode}-${k}.png`), path.join(out, `core-${mode}-${k}.png`))
       }
     }
-    // The ring at a few levels of 5h usage: blue, then yellow from 60%, red from 85%.
+    // The ring at a few levels of weekly usage: blue, then yellow from 60%, red from 85%.
     if (wants('ring') && lang === langs[0]) {
       for (const pct of RING_LEVELS) {
         await request(`coreframes:idle|${pct}`)
@@ -217,6 +220,11 @@ async function capture(lang) {
       await wait(600)
     }
     if (wants('panel')) await snap('panel', 'panel')
+    // The week's list, open under the weekly line.
+    if (wants('week')) {
+      await snap('week', 'week')
+      await request('week-close')
+    }
     if (wants('glance')) {
       writeAll(false)
       await wait(600)

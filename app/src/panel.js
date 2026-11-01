@@ -1,7 +1,9 @@
 // The panel: the account's usage, then a row per session. Each row leads with a small
 // core in the big core's language, says what the session is doing, shows its context
-// as ten cells (pressing them compacts), its share of the five-hour window, and a jump
-// to the session in the app. Clicking a row opens its chat beside the panel.
+// as ten cells (pressing them compacts), its share of the week's usage, and a jump
+// to the session in the app. Clicking a row opens its chat beside the panel. The
+// weekly line opens the week's list: every session that spent this week, ended ones
+// too, biggest first.
 'use strict'
 
 function showUsage() {
@@ -19,7 +21,44 @@ function showUsage() {
     what.append(pct)
     row.append(what, el('span', 'note', formatReset(m.resetsAt)))
     box.append(row)
+    if (m.short !== '7d') continue
+    row.classList.add('is-toggle')
+    row.title = tr('week.tip')
+    what.append(el('span', 'caret', S.isWeekOpen ? ' ▴' : ' ▾'))
+    row.addEventListener('click', () => {
+      S.isWeekOpen = !S.isWeekOpen
+      update()
+    })
+    if (S.isWeekOpen) box.append(weekList())
   }
+}
+
+// The week's list. Names come from the app when it knows the session, looked up once.
+const WEEK_ROWS = 8
+const weekNames = new Map()
+function weekName(x) {
+  if (!weekNames.has(x.id)) {
+    weekNames.set(x.id, null)
+    hud.appSession(x.id).then(app => app && app.title && weekNames.set(x.id, app.title)).catch(() => {})
+  }
+  return weekNames.get(x.id) || x.name
+}
+
+function weekList() {
+  const list = el('div', 'week')
+  if (S.weekTop.length === 0) {
+    list.append(el('div', 'week-empty', tr('week.empty')))
+    return list
+  }
+  for (const x of S.weekTop.slice(0, WEEK_ROWS)) {
+    const row = el('div', 'week-row')
+    if (x.isEnded) row.classList.add('is-ended')
+    row.append(el('span', 'name', weekName(x)), el('span', 'pct', formatShare(x.pct, x.isPartial)))
+    list.append(row)
+  }
+  const more = S.weekTop.length - WEEK_ROWS
+  if (more > 0) list.append(el('div', 'week-empty', tr('week.more', { n: more })))
+  return list
 }
 
 const rows = new Map()
@@ -95,7 +134,7 @@ function updateRowButtons(row) {
   const ctxText = s.ctx != null ? `${tr('usage.ctx')} ${s.ctx}%` : tr('usage.ctx')
   row.gaugeBox.title = row.canCompact ? tr('panel.compactTip', { ctx: ctxText }) : ctxText
 
-  // Under the gauge: the compaction's progress when there is one, else the 5h share.
+  // Under the gauge: the compaction's progress when there is one, else the week's share.
   row.share.title = tr('panel.shareTip')
   if (state === 'running') row.share.textContent = tr('panel.compacting')
   else if (state === 'queued') row.share.replaceChildren(el('b', null, tr('panel.compactQueued')))
@@ -107,7 +146,7 @@ function updateRowButtons(row) {
     row.share.replaceChildren(b)
     row.share.title = String(failure.message)
   } else if (s.windowPct != null) {
-    row.share.replaceChildren(document.createTextNode('5h '), el('b', null, formatShare(s.windowPct, s.isPartial)))
+    row.share.replaceChildren(document.createTextNode(`${tr('panel.sharePrefix')} `), el('b', null, formatShare(s.windowPct, s.isPartial)))
   } else row.share.textContent = ''
 }
 

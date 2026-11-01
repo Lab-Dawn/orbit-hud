@@ -302,7 +302,7 @@ function chooseLang(choice) {
   send('lang', applyLang())
 }
 
-// Notices (a finished task, context or 5h running out) can be turned off for a quiet
+// Notices (a finished task, context or the week's usage running out) can be turned off for a quiet
 // widget: the core still shows everything, nothing pops out of it.
 function setNotices(isOn) {
   prefs.notices = isOn
@@ -387,8 +387,8 @@ function writeLive(rel, text) {
   }
 }
 
-// Every session file under five hours old (older ones cannot belong to the running
-// window), parsed once per change, with its age; and every session whose transcript
+// Every session file under a week old (older ones cannot belong to the running
+// weekly window), parsed once per change, with its age; and every session whose transcript
 // moved in the last hour, so one that has no plugin in it (started before the plugin
 // was set up, or the plugin failed to load) is listed too, from its transcript alone.
 const RECENT_MS = 60 * 60 * 1000
@@ -413,7 +413,7 @@ function readSessions() {
       continue
     }
     const age = now - stat.mtimeMs
-    if (age > 5 * 3600 * 1000) continue
+    if (age > 7 * 24 * 3600 * 1000) continue
     let cached = parsed.get(full)
     if (!cached || cached.stamp !== stat.mtimeMs) {
       try {
@@ -434,7 +434,8 @@ function readSessions() {
     }
     seen.add(id)
     const transcript = cached.data.transcript || (t && t.file)
-    out.push({ id, age, stamp: stat.mtimeMs, data: cached.data, cache: readCache(transcript), activeAt: t ? t.mtimeMs : 0 })
+    // Only sessions that can be listed need their cache read; the rest are there for the week's sums.
+    out.push({ id, age, stamp: stat.mtimeMs, data: cached.data, cache: age < RECENT_MS ? readCache(transcript) : null, activeAt: t ? t.mtimeMs : 0 })
   }
   for (const [id, t] of recent) {
     if (seen.has(id)) continue

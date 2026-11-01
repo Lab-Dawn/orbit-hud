@@ -51,7 +51,7 @@ function pushNotice(color, head, body, sessionId, action, seconds) {
 }
 
 // Turns changes between ticks into notices: a session that stops working has finished;
-// the 5h limit or a session's context crossing 85% is worth a word, once per crossing.
+// the weekly limit or a session's context crossing 85% is worth a word, once per crossing.
 function watchEvents(list) {
   for (const s of list) {
     const prev = prevStates.get(s.id)
@@ -67,12 +67,12 @@ function watchEvents(list) {
       pushNotice('Danger', tr('notice.ctxHead', { pct: s.ctx, title: s.title }), tr('notice.ctxBody'), s.id, 'focus', 8)
     } else if (s.ctx != null && s.ctx < 80) warned.delete(key)
   }
-  const five = S.account.find(m => m.short === '5h')
-  if (five && five.resetsAt) {
-    const key = `5h|${five.resetsAt}`
-    if (five.pct >= 85 && !warned.has(key)) {
+  const week = S.account.find(m => m.short === '7d')
+  if (week && week.resetsAt) {
+    const key = `7d|${week.resetsAt}`
+    if (week.pct >= 85 && !warned.has(key)) {
       warned.add(key)
-      pushNotice('Danger', tr('notice.fiveHead', { pct: five.pct }), tr('notice.fiveBody', { reset: formatReset(five.resetsAt) }), null, 'panel', 8)
+      pushNotice('Danger', tr('notice.weekHead', { pct: week.pct }), tr('notice.weekBody', { reset: formatReset(week.resetsAt) }), null, 'week', 8)
     }
   }
 }
@@ -138,7 +138,8 @@ cards.notice.addEventListener('click', () => {
     S.isOpen = true
     S.isSideSet = false
     update()
-  } else if (n.action === 'panel') {
+  } else if (n.action === 'panel' || n.action === 'week') {
+    if (n.action === 'week') S.isWeekOpen = true
     S.isOpen = true
     S.isSideSet = false
     update()

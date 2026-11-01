@@ -132,7 +132,7 @@ def ring_strip():
 
 
 for lang in LANGS:
-    for name in ("question", "panel-chat", "notice"):
+    for name in ("question", "panel-chat", "week", "notice"):
         crop(lang, name)
     notify_pair(lang)
     core_strip(lang)

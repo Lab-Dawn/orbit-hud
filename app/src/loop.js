@@ -37,10 +37,10 @@ async function tick() {
   S.account = accountUsage(list)
   setWindowShares(list)
 
-  // The core: the 5h figure as its ring, the busiest state as its light.
-  const five = S.account.find(m => m.short === '5h')
+  // The core: the weekly figure as its ring, the busiest state as its light.
+  const week = S.account.find(m => m.short === '7d')
   const mode = list.some(s => s.state === 'ask') ? 'ask' : list.some(s => s.state === 'working') ? 'working' : 'idle'
-  const pct = five ? Number(five.pct) : 0
+  const pct = week ? Number(week.pct) : 0
   if (mode !== S.coreMode || pct !== S.corePct) {
     S.coreMode = mode
     S.corePct = pct
@@ -106,6 +106,11 @@ hud.on('debug', async word => {
     } else if (word.startsWith('cachetip:')) {
       const row = rows.get(word.slice(9))
       if (row) showCacheTip(row)
+    } else if (word === 'week' || word === 'week-close') {
+      S.isWeekOpen = word === 'week'
+      S.isOpen = true
+      S.isSideSet = false
+      await update()
     } else if (word === 'quiet:on' || word === 'quiet:off') {
       setQuiet(word === 'quiet:on')
       await update()

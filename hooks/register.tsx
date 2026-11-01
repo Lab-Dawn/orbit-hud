@@ -19,12 +19,12 @@ const spend = atom({ plugin: 'orbit-hud', key: 'spend' } as const, null as Spend
 
 const WINDOW_SLACK_MS = 60_000
 
-// Moves the window baseline when the five-hour window resets, so what each session
+// Moves the window baseline when the weekly window resets, so what each session
 // shows is what it spent in the window now running.
 async function trackSpend($: EngineInterface, u: Usage) {
   if (u.usd === undefined) return
   const usd = u.usd
-  const resetsAt = u.limits.find(l => l.kind === 'five_hour')?.resetsAt ?? null
+  const resetsAt = u.limits.find(l => l.kind === 'seven_day')?.resetsAt ?? null
   await update($, spend, prev => {
     if (!prev || typeof prev.baseUsd !== 'number') {
       // First sight: a session that has spent nothing yet is counted in full.
@@ -773,7 +773,7 @@ export const register: Register = on => {
       return { text: t('hud.hidden') }
     }
     if (arg === 'lang' || arg.startsWith('lang ')) return { text: await chooseLang($, arg.slice(4).trim().toLowerCase()) }
-    // /hud notify on|off: the widget's notices (finished, context, 5h); questions still come.
+    // /hud notify on|off: the widget's notices (finished, context, weekly usage) and question cards.
     if (arg === 'notify on' || arg === 'notify off') {
       const isOn = arg === 'notify on'
       await $.fs.write(widgetCommandFile, `notices:${isOn ? 'on' : 'off'}`)
